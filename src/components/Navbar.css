@@ -1,0 +1,223 @@
+@media (max-width: 1100px) {
+  .navbar-brand {
+    max-width: 50vw;
+    font-size: 1.1rem;
+  }
+
+  .navbar-search {
+    flex: 0 1 240px;
+    max-width: 240px;
+    margin: 0 8px;
+  }
+
+  .navbar-link {
+    padding: 4px 8px;
+  }
+}
+
+.navbar {
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  /* overflow-x: hidden; removed to allow mobile menu visibility */
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 20px;
+  /* allow natural height for 2-line brand */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: auto;
+  /* grow with content */
+  min-height: 60px;
+  gap: 8px;
+}
+
+.navbar-brand {
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-weight: bold;
+  color: #2c5530;
+  text-decoration: none;
+  /* Wrap onto two lines and try to fit entire name */
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.15;
+  max-width: 48vw;
+  /* professional balance: brand vs controls */
+  overflow-wrap: break-word;
+  /* wrap long words at acceptable points */
+  word-break: normal;
+  /* avoid awkward mid-glyph breaks */
+  margin-right: 8px;
+  flex: 0 1 auto;
+}
+
+.navbar-search {
+  flex: 0 1 300px;
+  /* let brand use more space; search shrinks first */
+  max-width: 300px;
+  margin: 0 12px;
+  /* slightly tighter to give brand room */
+}
+
+/* When VoiceSearch is used inside the navbar, hide the helper text to avoid overlap */
+.navbar .voice-commands-help,
+.navbar-search .voice-commands-help {
+  display: none !important;
+}
+
+/* Slightly tighten the navbar search input spacing for better alignment */
+.navbar .search-input-container .search-input {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  /* prevent wrapping to next line */
+  flex: 0 0 auto;
+  /* keep menu compact */
+}
+
+.navbar-link {
+  color: #333;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.navbar-link:hover {
+  background-color: #e6f4ea;
+  /* light green highlight */
+}
+
+.cart-link {
+  position: relative;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -5px;
+  right: 5px;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+
+.admin-link {
+  background: #2c5530;
+  color: white !important;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.logout-btn,
+.login-btn {
+  background: #2c5530;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.logout-btn:hover,
+.login-btn:hover {
+  background: #a7e3b1;
+  /* light green highlight */
+  color: #1e3a21;
+}
+
+.navbar-toggle {
+  display: none;
+  flex-direction: column;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.navbar-toggle span {
+  width: 25px;
+  height: 3px;
+  background: #333;
+  margin: 3px 0;
+  transition: 0.3s;
+}
+
+@media (max-width: 768px) {
+  .navbar-brand {
+    max-width: 60vw;
+  }
+
+  .navbar-search {
+    display: none;
+  }
+
+  .navbar-toggle {
+    display: flex;
+  }
+
+  .navbar-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    flex-direction: column;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    top: 60px;
+    /* match new navbar height */
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: white;
+    flex-direction: column;
+    padding: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 999;
+  }
+
+  .navbar-menu.active {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
+}

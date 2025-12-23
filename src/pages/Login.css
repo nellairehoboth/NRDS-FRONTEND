@@ -1,0 +1,227 @@
+/* ===============================
+   Login Page Background
+================================ */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    linear-gradient(
+      rgba(0, 0, 0, 0.30),
+      rgba(0, 0, 0, 0.30)
+    ),
+    url("https://lh3.googleusercontent.com/gps-cs-s/AG0ilSz55-XPMpanrDBNE-u8tL3OqSsqsBQqFwI5ZFlk19AvEIMDi-3RJczseoFKaz2uO4Rv-h9Kl_lS5iy3-EVhv2l1-b4SEzUPSbbgSNUKi_w-mVdkgolNzjjv4JD-bBDS1RkeUmggEA=s1360-w1360-h1020-rw");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  padding: 20px;
+}
+
+/* ===============================
+   Container
+================================ */
+.login-container {
+  display: flex;
+  justify-content: center;
+  max-width: 500px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ===============================
+   Login Card
+================================ */
+.login-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(6px);
+}
+
+/* ===============================
+   Header
+================================ */
+.login-header h1 {
+  color: #2c5530;
+  margin-bottom: 10px;
+  font-size: 2rem;
+  text-align: center;
+}
+
+.login-header p {
+  color: #666;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+/* ===============================
+   Form
+================================ */
+.login-form {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2c5530;
+}
+
+/* ===============================
+   Buttons
+================================ */
+.signin-btn {
+  width: 100%;
+  padding: 12px 24px;
+  background: #2c5530;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  margin-bottom: 20px;
+}
+
+.signin-btn:hover:not(:disabled) {
+  background: #1e3a21;
+}
+
+.signin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===============================
+   Google Login
+================================ */
+.google-login-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  margin-bottom: 15px;
+}
+
+.google-login-btn:hover:not(:disabled) {
+  border-color: #2c5530;
+  background: #f9f9f9;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ===============================
+   Signup Link
+================================ */
+.signup-link {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.signup-link p {
+  color: #666;
+  margin: 0;
+}
+
+.signup-link a {
+  color: #2c5530;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.signup-link a:hover {
+  text-decoration: underline;
+}
+
+/* ===============================
+   Error Message
+================================ */
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #f5c6cb;
+}
+
+/* ===============================
+   Features
+================================ */
+.login-features h3 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.login-features ul {
+  list-style: none;
+  padding: 0;
+}
+
+.login-features li {
+  padding: 8px 0;
+  color: #666;
+}
+
+/* ===============================
+   Footer
+================================ */
+.login-footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.login-footer p {
+  color: #999;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ===============================
+   Responsive
+================================ */
+@media (max-width: 768px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+}
