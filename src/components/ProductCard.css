@@ -175,11 +175,22 @@
   background: #e0e0e0;
 }
 
-.quantity {
+.quantity-input {
   padding: 8px 16px;
   font-weight: 500;
-  min-width: 40px;
+  min-width: 60px;
   text-align: center;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  -moz-appearance: textfield; /* Remove spinner in Firefox */
+}
+
+/* Remove spinner arrows in Chrome, Safari, Edge */
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .add-to-cart-btn {

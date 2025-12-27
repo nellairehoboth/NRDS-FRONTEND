@@ -76,7 +76,7 @@ const Checkout = () => {
       };
 
       const response = await api.post('/api/orders', orderData);
-      
+
       if (response.data.success) {
         const ord = response.data.order;
         if (paymentMethod === 'razorpay') {
@@ -132,9 +132,18 @@ const Checkout = () => {
               }
             },
             modal: {
-              ondismiss: () => {
-                alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING. You can try again.'));
-                navigate(`/orders/${ord._id}`);
+              ondismiss: async () => {
+                try {
+                  // Call backend to cancel payment, restore stock, and hide order
+                  await api.post(`/api/orders/${ord._id}/cancel-payment`);
+                  alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your cart items have been restored.'));
+                  navigate('/');
+                } catch (err) {
+                  console.error('Failed to cancel payment:', err);
+                  // Even if the API call fails, still navigate away
+                  alert(t('checkout.pay_cancelled', 'Payment was cancelled.'));
+                  navigate('/');
+                }
               },
             },
             theme: {
@@ -265,7 +274,15 @@ const Checkout = () => {
                 return (
                   <div key={key} className="order-item">
                     <span>{name} x {item.quantity}</span>
-                    <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                    <span>₹{(() => {
+                      const subtotal = item.price * item.quantity;
+                      const rate = Number(item.tax?.gstRate || 0);
+                      const inclusive = Boolean(item.tax?.inclusive ?? false);
+                      if (rate > 0 && !inclusive) {
+                        return (subtotal + (subtotal * rate / 100)).toFixed(2);
+                      }
+                      return subtotal.toFixed(2);
+                    })()}</span>
                   </div>
                 );
               })}

@@ -35,7 +35,7 @@ const AdminPanel = () => {
     price: '',
     mrp: '',
     gstRate: '',
-    taxInclusive: true,
+    taxInclusive: false,
     category: 'fruits',
     stock: '',
     unit: 'kg',
@@ -53,7 +53,7 @@ const AdminPanel = () => {
     price: '',
     mrp: '',
     gstRate: '',
-    taxInclusive: true,
+    taxInclusive: false,
     category: 'fruits',
     stock: '',
     unit: 'kg',
@@ -578,15 +578,15 @@ const AdminPanel = () => {
             )}
           </div>
         </div>
-        
+
         <div className="admin-tabs">
-          <button 
+          <button
             className={activeTab === 'products' ? 'active' : ''}
             onClick={() => setActiveTab('products')}
           >
             {t('admin.tabs.products', 'Products')}
           </button>
-          <button 
+          <button
             className={activeTab === 'orders' ? 'active' : ''}
             onClick={() => setActiveTab('orders')}
           >
@@ -599,7 +599,7 @@ const AdminPanel = () => {
             <div className="section-header">
               <h2>{t('admin.products_mgmt', 'Products Management')}</h2>
               {!editingProduct && (
-                <button 
+                <button
                   onClick={() => setShowAddProduct(true)}
                   className="btn btn-primary"
                 >
@@ -675,7 +675,7 @@ const AdminPanel = () => {
             )}
 
             {editingProduct && (
-              <div className="add-product-form" style={{marginTop: 12}}>
+              <div className="add-product-form" style={{ marginTop: 12 }}>
                 <h3>Edit Product</h3>
                 <form onSubmit={handleUpdateProduct}>
                   <div className="form-grid">
@@ -683,20 +683,20 @@ const AdminPanel = () => {
                       type="text"
                       placeholder="Product Name"
                       value={editForm.name}
-                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                       required
                     />
                     <input
                       type="text"
                       placeholder="Brand"
                       value={editForm.brand}
-                      onChange={(e) => setEditForm({...editForm, brand: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
                     />
                     <input
                       type="text"
                       placeholder="Barcode"
                       value={editForm.barcode}
-                      onChange={(e) => setEditForm({...editForm, barcode: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
                     />
                     {!hasVariants(editForm.variants) && (
                       <>
@@ -704,14 +704,14 @@ const AdminPanel = () => {
                           type="number"
                           placeholder="Price"
                           value={editForm.price}
-                          onChange={(e) => setEditForm({...editForm, price: e.target.value})}
+                          onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
                           required
                         />
                         <input
                           type="number"
                           placeholder="MRP"
                           value={editForm.mrp}
-                          onChange={(e) => setEditForm({...editForm, mrp: e.target.value})}
+                          onChange={(e) => setEditForm({ ...editForm, mrp: e.target.value })}
                         />
                       </>
                     )}
@@ -719,11 +719,11 @@ const AdminPanel = () => {
                       type="number"
                       placeholder="GST %"
                       value={editForm.gstRate}
-                      onChange={(e) => setEditForm({...editForm, gstRate: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, gstRate: e.target.value })}
                     />
                     <select
                       value={editForm.category}
-                      onChange={(e) => setEditForm({...editForm, category: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                     >
                       <option value="fruits">Fruits</option>
                       <option value="vegetables">Vegetables</option>
@@ -741,13 +741,13 @@ const AdminPanel = () => {
                         type="number"
                         placeholder="Stock"
                         value={editForm.stock}
-                        onChange={(e) => setEditForm({...editForm, stock: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                         required
                       />
                     )}
                     <select
                       value={editForm.unit}
-                      onChange={(e) => setEditForm({...editForm, unit: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
                     >
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -761,27 +761,27 @@ const AdminPanel = () => {
                       type="date"
                       placeholder="Expiry Date"
                       value={editForm.expiryDate}
-                      onChange={(e) => setEditForm({...editForm, expiryDate: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })}
                     />
                     <input
                       type="url"
                       placeholder="Image URL"
                       value={editForm.image}
-                      onChange={(e) => setEditForm({...editForm, image: e.target.value})}
+                      onChange={(e) => setEditForm({ ...editForm, image: e.target.value })}
                     />
-                    <label style={{display:'flex',alignItems:'center',gap:8}}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
                         type="checkbox"
                         checked={!!editForm.isActive}
-                        onChange={(e) => setEditForm({...editForm, isActive: e.target.checked})}
+                        onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
                       />
                       Active
                     </label>
-                    <label style={{display:'flex',alignItems:'center',gap:8}}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
                         type="checkbox"
                         checked={!!editForm.taxInclusive}
-                        onChange={(e) => setEditForm({...editForm, taxInclusive: e.target.checked})}
+                        onChange={(e) => setEditForm({ ...editForm, taxInclusive: e.target.checked })}
                       />
                       Tax Inclusive
                     </label>
@@ -881,13 +881,13 @@ const AdminPanel = () => {
                   <textarea
                     placeholder="Description"
                     value={editForm.description}
-                    onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                     required
                   />
                   <div className="form-actions">
                     <button type="submit" className="btn btn-primary" disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save Changes'}</button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setEditingProduct(null)}
                       className="btn btn-secondary"
                     >
@@ -907,20 +907,20 @@ const AdminPanel = () => {
                       type="text"
                       placeholder="Product Name"
                       value={newProduct.name}
-                      onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                       required
                     />
                     <input
                       type="text"
                       placeholder="Brand"
                       value={newProduct.brand}
-                      onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
                     />
                     <input
                       type="text"
                       placeholder="Barcode"
                       value={newProduct.barcode}
-                      onChange={(e) => setNewProduct({...newProduct, barcode: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
                     />
                     {!hasVariants(newProduct.variants) && (
                       <>
@@ -928,14 +928,14 @@ const AdminPanel = () => {
                           type="number"
                           placeholder="Price"
                           value={newProduct.price}
-                          onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                          onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                           required
                         />
                         <input
                           type="number"
                           placeholder="MRP"
                           value={newProduct.mrp}
-                          onChange={(e) => setNewProduct({...newProduct, mrp: e.target.value})}
+                          onChange={(e) => setNewProduct({ ...newProduct, mrp: e.target.value })}
                         />
                       </>
                     )}
@@ -943,11 +943,11 @@ const AdminPanel = () => {
                       type="number"
                       placeholder="GST %"
                       value={newProduct.gstRate}
-                      onChange={(e) => setNewProduct({...newProduct, gstRate: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, gstRate: e.target.value })}
                     />
                     <select
                       value={newProduct.category}
-                      onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                     >
                       <option value="fruits">Fruits</option>
                       <option value="vegetables">Vegetables</option>
@@ -965,13 +965,13 @@ const AdminPanel = () => {
                         type="number"
                         placeholder="Stock"
                         value={newProduct.stock}
-                        onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                        onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
                         required
                       />
                     )}
                     <select
                       value={newProduct.unit}
-                      onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
                     >
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -985,19 +985,19 @@ const AdminPanel = () => {
                       type="date"
                       placeholder="Expiry Date"
                       value={newProduct.expiryDate}
-                      onChange={(e) => setNewProduct({...newProduct, expiryDate: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, expiryDate: e.target.value })}
                     />
                     <input
                       type="url"
                       placeholder="Image URL"
                       value={newProduct.image}
-                      onChange={(e) => setNewProduct({...newProduct, image: e.target.value})}
+                      onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
                     />
-                    <label style={{display:'flex',alignItems:'center',gap:8}}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
                         type="checkbox"
                         checked={!!newProduct.taxInclusive}
-                        onChange={(e) => setNewProduct({...newProduct, taxInclusive: e.target.checked})}
+                        onChange={(e) => setNewProduct({ ...newProduct, taxInclusive: e.target.checked })}
                       />
                       Tax Inclusive
                     </label>
@@ -1097,13 +1097,13 @@ const AdminPanel = () => {
                   <textarea
                     placeholder="Description"
                     value={newProduct.description}
-                    onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
                     required
                   />
                   <div className="form-actions">
                     <button type="submit" className="btn btn-primary">Add Product</button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setShowAddProduct(false)}
                       className="btn btn-secondary"
                     >
@@ -1170,14 +1170,14 @@ const AdminPanel = () => {
                               <span style={{ marginLeft: 6, color: '#b00020', fontSize: 12 }}>(Out)</span>
                             )}
                           </td>
-                        <td>
-                          <span className={`status ${product.isActive ? 'active' : 'inactive'}`}>
-                            {product.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td>
-                          <button className="btn" onClick={() => openEdit(product)}>Edit</button>
-                        </td>
+                          <td>
+                            <span className={`status ${product.isActive ? 'active' : 'inactive'}`}>
+                              {product.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td>
+                            <button className="btn" onClick={() => openEdit(product)}>Edit</button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -1260,9 +1260,9 @@ const AdminPanel = () => {
                         </td>
                         <td>{new Date(order.createdAt).toLocaleDateString()}</td>
                         <td>
-                          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <button className="btn btn-sm" onClick={() => setOrderDetail(order)}>View Details</button>
-                            {String(order?.paymentMethod).toLowerCase() === 'cod' && !['DELIVERED','CANCELLED','cancelled'].includes(String(order?.status)) && (
+                            {String(order?.paymentMethod).toLowerCase() === 'cod' && !['DELIVERED', 'CANCELLED', 'cancelled'].includes(String(order?.status)) && (
                               <button
                                 type="button"
                                 className="btn btn-sm"
@@ -1298,7 +1298,7 @@ const AdminPanel = () => {
         <div className="modal-overlay" onClick={() => setOrderDetail(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{margin:0}}>Order Details — {orderDetail.orderNumber}</h3>
+              <h3 style={{ margin: 0 }}>Order Details — {orderDetail.orderNumber}</h3>
               <button className="modal-close" onClick={() => setOrderDetail(null)}>Close</button>
             </div>
             <div className="modal-body">
@@ -1316,8 +1316,8 @@ const AdminPanel = () => {
               </div>
 
               <div className="modal-section">
-                <h4 style={{margin:'8px 0'}}>Shipping Address</h4>
-                <div style={{color:'#374151'}}>
+                <h4 style={{ margin: '8px 0' }}>Shipping Address</h4>
+                <div style={{ color: '#374151' }}>
                   <div>{orderDetail.shippingAddress?.name}</div>
                   <div>{orderDetail.shippingAddress?.street}</div>
                   <div>{orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.state} {orderDetail.shippingAddress?.zipCode}</div>
@@ -1327,7 +1327,7 @@ const AdminPanel = () => {
               </div>
 
               <div className="modal-section">
-                <h4 style={{margin:'8px 0'}}>Items</h4>
+                <h4 style={{ margin: '8px 0' }}>Items</h4>
                 <table className="mini-table">
                   <thead>
                     <tr>
@@ -1351,7 +1351,7 @@ const AdminPanel = () => {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <th colSpan={4} style={{textAlign:'right'}}>Total</th>
+                      <th colSpan={4} style={{ textAlign: 'right' }}>Total</th>
                       <th>₹{orderDetail.totalAmount}</th>
                     </tr>
                   </tfoot>

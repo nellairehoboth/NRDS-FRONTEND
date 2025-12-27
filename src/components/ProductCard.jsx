@@ -77,7 +77,7 @@ const ProductCard = ({ product, onDelete }) => {
         console.log('Added to cart successfully');
         // Small delay to show the success state before redirecting
         setTimeout(() => {
-          navigate('/orders');
+          navigate('/cart');
         }, 500);
       } else {
         alert('Failed to add item to cart');
@@ -104,7 +104,7 @@ const ProductCard = ({ product, onDelete }) => {
     setIsDeleting(true);
     try {
       const response = await api.delete(`/api/products/${product._id}`);
-      
+
       if (response.data.success) {
         alert('Product deleted successfully');
         if (onDelete) {
@@ -127,7 +127,7 @@ const ProductCard = ({ product, onDelete }) => {
   return (
     <div className="product-card">
       {isAdmin && (
-        <button 
+        <button
           className="delete-product-btn"
           onClick={handleDeleteProduct}
           disabled={isDeleting}
@@ -138,8 +138,8 @@ const ProductCard = ({ product, onDelete }) => {
       )}
       <div className="product-image">
         {!imageError && product.image ? (
-          <img 
-            src={product.image} 
+          <img
+            src={product.image}
             alt={displayName}
             onError={() => setImageError(true)}
           />
@@ -165,11 +165,11 @@ const ProductCard = ({ product, onDelete }) => {
           </div>
         )}
       </div>
-      
+
       <div className="product-info">
         <h3 className="product-name">{displayName}</h3>
         <p className="product-description">{product.description}</p>
-        
+
         <div className="product-details">
           <span className="product-category">{product.category}</span>
           <span className="product-unit">per {product.unit}</span>
@@ -193,33 +193,43 @@ const ProductCard = ({ product, onDelete }) => {
             </select>
           </div>
         )}
-        
+
         <div className="product-price">
           <span className="price">₹{unitPrice}</span>
           {availableStock > 0 && (
             <span className="stock-info">{availableStock} available</span>
           )}
         </div>
-        
+
         {availableStock > 0 ? (
           <div className="product-actions">
             <div className="quantity-selector">
-              <button 
+              <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 className="quantity-btn"
               >
                 -
               </button>
-              <span className="quantity">{quantity}</span>
-              <button 
+              <input
+                type="number"
+                min="1"
+                max={availableStock}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  setQuantity(Math.max(1, Math.min(availableStock, val)));
+                }}
+                className="quantity-input"
+              />
+              <button
                 onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
                 className="quantity-btn"
               >
                 +
               </button>
             </div>
-            
-            <button 
+
+            <button
               onClick={handleAddToCart}
               disabled={isAdding || !isAuthenticated}
               className={`add-to-cart-btn ${isAdding ? 'adding' : ''}`}
