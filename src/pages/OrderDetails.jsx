@@ -140,8 +140,7 @@ const OrderDetails = () => {
   if (error) return <div className="container"><h2>{error}</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
   if (!order) return <div className="container"><h2>Order not found</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
 
-<<<<<<< HEAD
-  const isRestricted = ['PAYMENT_PENDING', 'CANCELLED', 'cancelled'].includes(order.status);
+  const isRestricted = ['PAYMENT_PENDING', 'CANCELLED', 'cancelled', 'pending'].includes(order.status) || order.paymentStatus === 'failed';
 
   if (isRestricted) {
     return (
@@ -149,47 +148,28 @@ const OrderDetails = () => {
         <div className="container" style={{ textAlign: 'center', marginTop: '50px' }}>
           <div className="print-container" style={{ padding: '40px' }}>
             <h2 style={{ color: '#ef4444' }}>Invoice Restricted</h2>
-            <p>Invoices are only generated for successful orders.</p>
+            <p>
+              {order.status === 'CANCELLED' || order.status === 'cancelled'
+                ? 'This order has been cancelled. No invoice is available.'
+                : order.paymentStatus === 'failed'
+                  ? 'Payment failed for this order. Please try again or contact support.'
+                  : 'Invoices are only generated for successful orders.'}
+            </p>
             <p>Current Status: <strong>{order.status}</strong></p>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                className="btn btn-primary"
-                onClick={handleRetryPayment}
-                disabled={retrying}
-              >
-                {retrying ? 'Starting Payment...' : 'Retry Payment'}
-              </button>
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {(order.status === 'PAYMENT_PENDING' || order.status === 'pending') && (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleRetryPayment}
+                  disabled={retrying}
+                >
+                  {retrying ? 'Starting Payment...' : 'Retry Payment'}
+                </button>
+              )}
               <Link to="/orders" className="btn" style={{ background: '#eee', color: '#333' }}>Back to My Orders</Link>
+              <Link to="/" className="btn">Continue Shopping</Link>
             </div>
           </div>
-=======
-  // Block invoice access for pending or cancelled orders
-  const blockedStatuses = ['PAYMENT_PENDING', 'CANCELLED', 'pending', 'cancelled'];
-  const isBlocked = blockedStatuses.includes(order.status) || order.paymentStatus === 'failed';
-
-  if (isBlocked) {
-    return (
-      <div className="container" style={{ marginTop: '40px', textAlign: 'center' }}>
-        <h2>Invoice Not Available</h2>
-        <p style={{ color: '#6b7280', marginTop: '16px', marginBottom: '24px' }}>
-          {order.status === 'CANCELLED'
-            ? 'This order has been cancelled. No invoice is available.'
-            : order.paymentStatus === 'failed'
-              ? 'Payment failed for this order. Please try again or contact support.'
-              : 'Payment is pending for this order. Complete the payment to view your invoice.'}
-        </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {order.status === 'PAYMENT_PENDING' && order.paymentMethod === 'razorpay' && (
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.href = '/checkout'}
-            >
-              Retry Payment
-            </button>
-          )}
-          <Link to="/orders" className="btn">Back to Orders</Link>
-          <Link to="/" className="btn">Continue Shopping</Link>
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
         </div>
       </div>
     );
@@ -237,12 +217,8 @@ const OrderDetails = () => {
     { qty: 0, taxable: 0, tax: 0, cgst: 0, sgst: 0, igst: 0, subtotal: 0 }
   );
 
-<<<<<<< HEAD
   const grandTotal = order.totalAmount;
   const deliveryCharge = order.deliveryCharge || 0;
-=======
-  const grandTotal = totals.taxable + totals.tax;
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
 
   return (
     <div className="order-details-page">

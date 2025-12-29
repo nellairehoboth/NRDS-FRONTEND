@@ -2,7 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import api from '../api/axios';
 import './MapModal.css';
+import { handleImageError } from '../utils/imageUtils';
+import { parseNominatimAddress } from '../utils/mapUtils';
 
 // Fix for default marker icons in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -69,18 +72,22 @@ const MapModal = ({
     // Sync with initialLocation when it changes
     useEffect(() => {
         if (initialLocation?.lat && initialLocation?.lng) {
-            setSelectedLoc(initialLocation);
+            // Only update if distance shifted significantly (avoids loops)
+            const latDiff = Math.abs(initialLocation.lat - (selectedLoc?.lat || 0));
+            const lngDiff = Math.abs(initialLocation.lng - (selectedLoc?.lng || 0));
+            if (latDiff > 0.00001 || lngDiff > 0.00001) {
+                setSelectedLoc(initialLocation);
+            }
         }
-    }, [initialLocation]);
+    }, [initialLocation]); // Removed selectedLoc from dependencies to allow manual map clicks
 
     // Fetch route when locations exist
     useEffect(() => {
         const fetchRoute = async () => {
             if (selectedLoc?.lat && shopLocation?.lat) {
                 try {
-                    const url = `https://router.project-osrm.org/route/v1/driving/${shopLocation.lng},${shopLocation.lat};${selectedLoc.lng},${selectedLoc.lat}?overview=full&geometries=geojson`;
-                    const res = await fetch(url);
-                    const data = await res.json();
+                    const response = await api.get(`/api/maps/route?start=${shopLocation.lng},${shopLocation.lat}&end=${selectedLoc.lng},${selectedLoc.lat}`);
+                    const data = response.data;
                     if (data.code === 'Ok' && data.routes?.[0]) {
                         const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
                         setRoute(coords);
@@ -107,8 +114,8 @@ const MapModal = ({
 
         debounceTimeout.current = setTimeout(async () => {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`);
-                const data = await res.json();
+                const response = await api.get(`/api/maps/search?q=${encodeURIComponent(query)}&limit=5`);
+                const data = response.data;
                 setSuggestions(data);
                 setShowSuggestions(true);
             } catch (err) {
@@ -132,8 +139,8 @@ const MapModal = ({
         setIsSearching(true);
         setShowSuggestions(false);
         try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
-            const data = await res.json();
+            const response = await api.get(`/api/maps/search?q=${encodeURIComponent(searchQuery)}`);
+            const data = response.data;
             if (data && data.length > 0) {
                 const { lat, lon } = data[0];
                 const newLoc = { lat: parseFloat(lat), lng: parseFloat(lon) };
@@ -154,17 +161,21 @@ const MapModal = ({
             if (selectedLoc?.lat && selectedLoc?.lng) {
                 try {
                     setAddressPreview(prev => ({ ...prev, full: 'Fetching address...' }));
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${selectedLoc.lat}&lon=${selectedLoc.lng}`);
-                    const data = await res.json();
-                    if (data && data.address) {
-                        const addr = data.address;
-                        const title = addr.neighbourhood || addr.suburb || addr.hamlet || addr.village || addr.town || addr.city || "Selected Location";
-                        const full = data.display_name;
-                        setAddressPreview({ title, full });
+                    const response = await api.get(`/api/maps/reverse?lat=${selectedLoc.lat}&lon=${selectedLoc.lng}`);
+                    const parsed = parseNominatimAddress(response.data);
+                    if (parsed) {
+                        setAddressPreview({
+                            title: parsed.title,
+                            full: parsed.full
+                        });
                     }
                 } catch (error) {
                     console.error("Failed to fetch address preview", error);
-                    setAddressPreview({ title: "Selected Location", full: "Address details unavailable" });
+                    const errorDetails = error.response?.data?.details || error.response?.data?.message || "";
+                    setAddressPreview({
+                        title: "Selected Location",
+                        full: errorDetails ? `Address details unavailable: ${errorDetails}` : "Address details unavailable. Please check your connection."
+                    });
                 }
             }
         };
@@ -278,7 +289,7 @@ const MapModal = ({
                             className="map-floating-location-btn"
                             title="Use Current Location"
                         >
-                            <img src="/gps-target-icon.png" alt="" style={{ width: '22px', height: '22px' }} />
+                            <img src="/gps-target-icon.png" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '22px', height: '22px' }} />
                         </button>
                         {locationError && (
                             <div style={{

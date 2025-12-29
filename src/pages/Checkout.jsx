@@ -7,6 +7,8 @@ import './Checkout.css';
 import { useI18n } from '../contexts/I18nContext';
 import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
+import { handleImageError } from '../utils/imageUtils';
+import { parseNominatimAddress } from '../utils/mapUtils';
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -82,12 +84,17 @@ const Checkout = () => {
   }, [isActuallyFree]);
 
   const calculateDynamicSlabCharge = (dist) => {
-    const slabs = deliverySettings.deliverySlabs || [];
+    const slabs = [...(deliverySettings.deliverySlabs || [])].sort((a, b) => a.minDistance - b.minDistance);
     if (!slabs.length) return 0;
-    const slab = slabs.find(s => dist >= s.minDistance && dist <= s.maxDistance);
-    if (slab) return slab.charge;
-    const lastSlab = slabs[slabs.length - 1];
-    if (lastSlab && dist > lastSlab.maxDistance) return lastSlab.charge;
+
+    // Find the last slab where the distance is at least the minDistance
+    // This handles "gaps" by sticking to the previous slab's rate until the next minDistance is hit.
+    const eligibleSlabs = slabs.filter(s => dist >= s.minDistance);
+    if (eligibleSlabs.length > 0) {
+      return eligibleSlabs[eligibleSlabs.length - 1].charge;
+    }
+
+    // If shorter than the first slab's minDistance, it might be free or use the first slab
     return 0;
   };
 
@@ -130,9 +137,8 @@ const Checkout = () => {
 
       let finalDist = 0;
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${shopLng},${shopLat};${userLng},${userLat}?overview=false`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const response = await api.get(`/api/maps/route?start=${shopLng},${shopLat}&end=${userLng},${userLat}`);
+        const data = response.data;
         if (data.code === 'Ok' && data.routes?.[0]) {
           finalDist = data.routes[0].distance / 1000;
         } else {
@@ -155,7 +161,8 @@ const Checkout = () => {
       setShippingLocation({ lat: userLat, lng: userLng });
     } catch (err) {
       console.error("Distance calculation failed:", err);
-      setDistanceError("Could not calculate distance automatically.");
+      const errorMsg = err.response?.data?.details || err.response?.data?.message || "Could not calculate distance automatically.";
+      setDistanceError(`Distance error: ${errorMsg}`);
     } finally {
       setIsLocating(false);
     }
@@ -169,8 +176,8 @@ const Checkout = () => {
     setIsLocating(true);
     setDistanceError('');
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-      const data = await res.json();
+      const response = await api.get(`/api/maps/search?q=${encodeURIComponent(query)}`);
+      const data = response.data;
       if (data && data.length > 0) {
         const { lat, lon } = data[0];
         await fetchRoadDistance(parseFloat(lat), parseFloat(lon));
@@ -350,7 +357,6 @@ const Checkout = () => {
             modal: {
               ondismiss: async () => {
                 try {
-<<<<<<< HEAD
                   await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
                   alert(t('checkout.pay_cancelled_retry', 'Payment was cancelled. You can retry the payment from your Order History.'));
                 } catch (err) {
@@ -358,18 +364,6 @@ const Checkout = () => {
                   alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING.'));
                 }
                 navigate(`/orders/${ord._id}`);
-=======
-                  // Call backend to cancel payment, restore stock, and hide order
-                  await api.post(`/api/orders/${ord._id}/cancel-payment`);
-                  alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your cart items have been restored.'));
-                  navigate('/');
-                } catch (err) {
-                  console.error('Failed to cancel payment:', err);
-                  // Even if the API call fails, still navigate away
-                  alert(t('checkout.pay_cancelled', 'Payment was cancelled.'));
-                  navigate('/');
-                }
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
               },
             },
             theme: {
@@ -487,7 +481,7 @@ const Checkout = () => {
                     alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none'
                   }}
                 >
-                  {isLocating ? '⌛' : <img src="/gps-target-icon.png" alt="" style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
+                  {isLocating ? '⌛' : <img src="/gps-target-icon.png" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
                 </button>
                 <button
                   type="button"
@@ -628,39 +622,22 @@ const Checkout = () => {
           isGpsUpdate.current = true;
 
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.address) {
-                const addr = data.address;
-                let streetInfo = [
-                  addr.house_number,
-                  addr.house_name,
-                  addr.building,
-                  addr.apartment,
-                  addr.road,
-                  addr.residential,
-                  addr.hamlet,
-                  addr.neighbourhood,
-                  addr.suburb
-                ].filter(Boolean).join(', ');
-
-                if (!streetInfo && data.display_name) {
-                  streetInfo = data.display_name.split(',')[0].trim();
-                }
-
-                setShippingAddress((prev) => ({
-                  ...prev,
-                  street: streetInfo,
-                  city: addr.city || addr.town || addr.village || addr.municipality || '',
-                  state: addr.state || '',
-                  zipCode: addr.postcode || '',
-                  country: addr.country || prev.country
-                }));
-              }
+            const response = await api.get(`/api/maps/reverse?lat=${loc.lat}&lon=${loc.lng}`);
+            const parsed = parseNominatimAddress(response.data);
+            if (parsed) {
+              setShippingAddress((prev) => ({
+                ...prev,
+                street: parsed.street,
+                city: parsed.city,
+                state: parsed.state,
+                zipCode: parsed.zipCode,
+                country: parsed.country || prev.country
+              }));
             }
           } catch (error) {
             console.error("Reverse geocoding failed:", error);
+            const errorMsg = error.response?.data?.details || error.response?.data?.message || "Address lookup failed.";
+            setDistanceError(`Reverse geocoding error: ${errorMsg}`);
           }
 
           fetchRoadDistance(loc.lat, loc.lng);

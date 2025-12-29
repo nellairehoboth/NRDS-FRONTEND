@@ -36,27 +36,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (token, userData) => {
+  const login = React.useCallback(async (token, userData) => {
     localStorage.setItem('token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     setUser(userData);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = React.useCallback(() => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
     window.location.href = '/';
-  };
+  }, []);
 
-  const value = {
+  const value = React.useMemo(() => ({
     user,
     login,
     logout,
     loading,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin'
-  };
+  }), [user, loading, login, logout]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -4,6 +4,7 @@ import ProductCard from '../components/ProductCard';
 import api from '../api/axios';
 import './Home.css';
 import { useI18n } from '../contexts/I18nContext';
+import { handleImageError } from '../utils/imageUtils';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -99,11 +100,7 @@ const Home = () => {
                       src={src}
                       alt={t('home.carousel_alt', 'store showcase')}
                       referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        if (e.currentTarget.src.endsWith('/grocery-hero.svg')) return;
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = '/grocery-hero.svg';
-                      }}
+                      onError={(e) => handleImageError(e, '/grocery-hero.svg')}
                     />
                   </div>
                 ))}

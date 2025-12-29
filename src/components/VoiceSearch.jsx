@@ -5,6 +5,7 @@ import "./VoiceSearch.css";
 const VoiceSearch = ({ onSearch }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [error, setError] = useState("");
   const [recognition, setRecognition] = useState(null);
   const navigate = useNavigate();
 
@@ -72,6 +73,7 @@ const VoiceSearch = ({ onSearch }) => {
 
       recognitionInstance.onstart = () => {
         setIsListening(true);
+        setError("");
       };
 
       recognitionInstance.onresult = (event) => {
@@ -85,6 +87,18 @@ const VoiceSearch = ({ onSearch }) => {
       recognitionInstance.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
+
+        let userMessage = "Speech recognition failed.";
+        if (event.error === 'no-speech') {
+          userMessage = "No speech detected. Please try again.";
+        } else if (event.error === 'audio-capture') {
+          userMessage = "No microphone found. Ensure it's plugged in.";
+        } else if (event.error === 'not-allowed') {
+          userMessage = "Microphone access denied.";
+        }
+
+        setError(userMessage);
+        setTimeout(() => setError(""), 3000);
       };
 
       recognitionInstance.onend = () => {
@@ -101,7 +115,12 @@ const VoiceSearch = ({ onSearch }) => {
   const startListening = () => {
     if (recognition) {
       setTranscript("");
-      recognition.start();
+      setError("");
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error("Failed to start recognition:", err);
+      }
     } else {
       alert("Speech recognition not supported. Use Chrome or Edge.");
     }
@@ -134,12 +153,18 @@ const VoiceSearch = ({ onSearch }) => {
 
         <button
           onClick={isListening ? stopListening : startListening}
-          className={`voice-btn ${isListening ? "listening" : ""}`}
+          className={`voice-btn ${isListening ? "listening" : ""} ${error ? "error" : ""}`}
           title={isListening ? "Stop listening" : "Start voice search"}
         >
-          🎤
+          {isListening ? '⏹️' : '🎤'}
         </button>
       </div>
+
+      {error && (
+        <div className="voice-error-message">
+          {error}
+        </div>
+      )}
 
       {isListening && (
         <div className="listening-indicator">

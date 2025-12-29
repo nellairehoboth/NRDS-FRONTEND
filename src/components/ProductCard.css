@@ -178,7 +178,6 @@
 }
 
 .quantity-input {
-<<<<<<< HEAD
   padding: 8px 4px;
   font-weight: 500;
   width: 50px;
@@ -191,19 +190,7 @@
   -moz-appearance: textfield;
 }
 
-=======
-  padding: 8px 16px;
-  font-weight: 500;
-  min-width: 60px;
-  text-align: center;
-  border: none;
-  outline: none;
-  font-size: 1rem;
-  -moz-appearance: textfield; /* Remove spinner in Firefox */
-}
-
 /* Remove spinner arrows in Chrome, Safari, Edge */
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
 .quantity-input::-webkit-outer-spin-button,
 .quantity-input::-webkit-inner-spin-button {
   -webkit-appearance: none;

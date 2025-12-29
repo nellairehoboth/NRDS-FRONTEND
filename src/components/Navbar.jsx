@@ -5,6 +5,7 @@ import { useCart } from '../contexts/CartContext';
 import { useI18n } from '../contexts/I18nContext';
 import VoiceSearch from './VoiceSearch';
 import './Navbar.css';
+import { handleImageError } from '../utils/imageUtils';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
@@ -59,12 +60,7 @@ const Navbar = () => {
                   src={user?.avatar || '/male-avatar.svg'}
                   alt={user?.name || 'User avatar'}
                   className="user-avatar"
-                  onError={(e) => {
-                    // Fallback robustly to bundled male avatar
-                    if (e.currentTarget.src.endsWith('/male-avatar.svg')) return;
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/male-avatar.svg';
-                  }}
+                  onError={(e) => handleImageError(e, '/male-avatar.svg')}
                 />
                 <span className="user-name">{user?.name}</span>
                 <button onClick={handleLogout} className="logout-btn">

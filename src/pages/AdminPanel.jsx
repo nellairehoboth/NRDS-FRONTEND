@@ -4,6 +4,7 @@ import './AdminPanel.css';
 import { useI18n } from '../contexts/I18nContext';
 import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
+import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
 
 const AdminPanel = () => {
   const { t } = useI18n();
@@ -31,47 +32,12 @@ const AdminPanel = () => {
   });
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
-<<<<<<< HEAD
     name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', variants: [],
-=======
-    name: '',
-    brand: '',
-    barcode: '',
-    description: '',
-    price: '',
-    mrp: '',
-    gstRate: '',
-    taxInclusive: false,
-    category: 'fruits',
-    stock: '',
-    unit: 'kg',
-    expiryDate: '',
-    image: '',
-    variants: [],
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
   });
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
-<<<<<<< HEAD
     name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', isActive: true, variants: [],
-=======
-    name: '',
-    brand: '',
-    barcode: '',
-    description: '',
-    price: '',
-    mrp: '',
-    gstRate: '',
-    taxInclusive: false,
-    category: 'fruits',
-    stock: '',
-    unit: 'kg',
-    expiryDate: '',
-    image: '',
-    isActive: true,
-    variants: [],
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
   });
   const [settings, setSettings] = useState({
     deliveryChargePerKm: '0',
@@ -95,7 +61,7 @@ const AdminPanel = () => {
   const UNITS = ['kg', 'g', 'lb', 'piece', 'liter', 'ml', 'pack', 'dozen'];
 
   const handleStoreMapConfirm = (loc) => {
-    setSettings({ ...settings, storeLatitude: loc.lat, storeLongitude: loc.lng });
+    setSettings({ ...settings, storeLatitude: loc.lat || SHOP_LOCATION.lat, storeLongitude: loc.lng || SHOP_LOCATION.lng });
     setShowStoreMap(false);
   };
 
@@ -142,8 +108,8 @@ const AdminPanel = () => {
     if (!addressSearch.trim()) return;
     setIsLocatingStore(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}`);
-      const data = await res.json();
+      const response = await api.get(`/api/maps/search?q=${encodeURIComponent(addressSearch)}`);
+      const data = response.data;
       if (data && data.length > 0) {
         setSettings({ ...settings, storeLatitude: parseFloat(data[0].lat), storeLongitude: parseFloat(data[0].lon) });
       } else {
@@ -158,17 +124,6 @@ const AdminPanel = () => {
   };
 
 
-  const normalizeVariants = (variants) => {
-    if (!Array.isArray(variants)) return [];
-    return variants.map((v) => {
-      const label = String(v?.label || '').trim();
-      const price = v?.price === '' || v?.price === null || v?.price === undefined ? '' : Number(v.price);
-      const mrp = v?.mrp === '' || v?.mrp === null || v?.mrp === undefined ? '' : Number(v.mrp);
-      const stock = v?.stock === '' || v?.stock === null || v?.stock === undefined ? '' : Number(v.stock);
-      const isActive = v?.isActive !== undefined ? !!v.isActive : true;
-      return { label, price, mrp, stock, isActive };
-    });
-  };
 
   const timeAgo = (iso) => {
     try {
@@ -221,11 +176,17 @@ const AdminPanel = () => {
       try {
         const response = await api.get('/api/admin/orders');
         const all = response.data.orders || [];
-        const newOnes = all
-          .filter(o => new Date(o?.createdAt || 0).getTime() > lastSeenOrderTs)
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+        // Track both new orders and status updates using updatedAt
+        const interestingOnes = all
+          .filter(o => {
+            const upTs = new Date(o?.updatedAt || 0).getTime();
+            return upTs > lastSeenOrderTs;
+          })
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
           .slice(0, 10);
-        if (alive) setUnseenOrders(newOnes);
+
+        if (alive) setUnseenOrders(interestingOnes);
       } catch (e) { }
     };
     poll();
@@ -319,7 +280,11 @@ const AdminPanel = () => {
     e.preventDefault();
     setSavingEdit(true);
     try {
-      const payload = { ...editForm, variants: toValidVariants(editForm.variants) };
+      const variants = toValidVariants(editForm.variants);
+      if (variants.length === 0 && (!editForm.price || editForm.price <= 0)) {
+        return alert('Please provide either a base price or add variants with prices.');
+      }
+      const payload = { ...editForm, variants };
       await api.put(`/api/admin/products/${editingProduct._id}`, payload);
       setEditingProduct(null);
       fetchProducts();
@@ -330,7 +295,11 @@ const AdminPanel = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...newProduct, variants: toValidVariants(newProduct.variants) };
+      const variants = toValidVariants(newProduct.variants);
+      if (variants.length === 0 && (!newProduct.price || newProduct.price <= 0)) {
+        return alert('Please provide either a base price or add variants with prices.');
+      }
+      const payload = { ...newProduct, variants };
       await api.post('/api/admin/products', payload);
       setShowAddProduct(false);
       setNewProduct({ name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', variants: [] });
@@ -339,7 +308,7 @@ const AdminPanel = () => {
   };
 
   const markOrdersSeen = () => {
-    const latestTs = unseenOrders.reduce((acc, o) => Math.max(acc, new Date(o.createdAt).getTime()), lastSeenOrderTs);
+    const latestTs = unseenOrders.reduce((acc, o) => Math.max(acc, new Date(o.updatedAt).getTime()), lastSeenOrderTs);
     const next = latestTs || Date.now();
     setLastSeenOrderTs(next);
     localStorage.setItem('admin_last_seen_order_ts', String(next));
@@ -352,6 +321,17 @@ const AdminPanel = () => {
       await api.delete(`/api/admin/products/${id}`);
       fetchProducts();
     } catch (e) { alert(t('admin.delete_failed', 'Failed to delete product')); }
+  };
+
+  const hasVariants = (vars) => Array.isArray(vars) && vars.length > 0;
+  const variantLabelOptions = ['all', ...new Set(products.flatMap(p => (p.variants || []).map(v => String(v.label || '').trim())).filter(l => l !== ''))];
+  const openEdit = (product) => {
+    setEditingProduct(product);
+    setEditForm({
+      ...product,
+      variants: product.variants || [],
+      taxInclusive: product.taxInclusive ?? true
+    });
   };
 
   const filteredProducts = products.filter(p => {
@@ -371,19 +351,30 @@ const AdminPanel = () => {
             <button className="admin-bell-btn" onClick={() => setNotifOpen(!notifOpen)}>
               🔔 {unseenOrders.length > 0 && <span className="admin-bell-badge">{unseenOrders.length}</span>}
             </button>
+            {loading && <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>Refreshing...</span>}
             {notifOpen && (
               <div className="admin-notif-dropdown" ref={notifRef}>
                 <div className="admin-notif-title">
                   <span>New Orders</span>
-                  <button onClick={markOrdersSeen}>Mark Read</button>
+                  <button className="admin-notif-mark" onClick={markOrdersSeen}>Mark Read</button>
                 </div>
                 <div className="admin-notif-list">
-                  {unseenOrders.map(o => (
-                    <div key={o._id} className="admin-notif-item">
-                      <div>{o.orderNumber} - ₹{o.totalAmount}</div>
-                      <small>{timeAgo(o.createdAt)}</small>
-                    </div>
-                  ))}
+                  {unseenOrders.length === 0 ? (
+                    <div className="admin-notif-empty">No new notifications</div>
+                  ) : (
+                    unseenOrders.map(o => (
+                      <div key={o._id} className="admin-notif-item">
+                        <div className="admin-notif-header">
+                          <span className="admin-notif-user">{o.user?.name || 'Unknown User'}</span>
+                          <span className={`status-pill ${o.status?.toLowerCase()}`}>{o.status}</span>
+                        </div>
+                        <div className="admin-notif-body">
+                          {o.orderNumber} - ₹{o.totalAmount}
+                        </div>
+                        <small className="admin-notif-time">{timeAgo(o.updatedAt)}</small>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -391,34 +382,14 @@ const AdminPanel = () => {
         </div>
 
         <div className="admin-tabs">
-<<<<<<< HEAD
-          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>Products</button>
-          <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>Orders</button>
-          <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Settings</button>
-=======
-          <button
-            className={activeTab === 'products' ? 'active' : ''}
-            onClick={() => setActiveTab('products')}
-          >
-            {t('admin.tabs.products', 'Products')}
-          </button>
-          <button
-            className={activeTab === 'orders' ? 'active' : ''}
-            onClick={() => setActiveTab('orders')}
-          >
-            {t('admin.tabs.orders', 'Orders')}
-          </button>
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
+          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>{t('admin.tabs.products', 'Products')}</button>
+          <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>{t('admin.tabs.orders', 'Orders')}</button>
+          <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>{t('admin.tabs.settings', 'Settings')}</button>
         </div>
 
         {activeTab === 'products' && (
           <div className="products-management">
             <div className="section-header">
-<<<<<<< HEAD
-              <h2>Products</h2>
-              <button onClick={() => setShowAddProduct(true)} className="btn btn-primary">Add Product</button>
-            </div>
-=======
               <h2>{t('admin.products_mgmt', 'Products Management')}</h2>
               {!editingProduct && (
                 <button
@@ -936,86 +907,74 @@ const AdminPanel = () => {
               </div>
             )}
 
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             <div className="products-table">
               <table>
-                <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {filteredProducts.map(p => (
-                    <tr key={p._id}>
-                      <td>{p.name}</td>
-                      <td>{p.category}</td>
-                      <td>₹{p.price}</td>
-                      <td>{p.stock}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="btn-sm btn-edit" onClick={() => { setEditingProduct(p); setEditForm({ ...p, variants: normalizeVariants(p.variants) }); }}>Edit</button>
-                          <button className="btn-sm btn-delete" onClick={() => handleDeleteProduct(p._id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-<<<<<<< HEAD
-                  ))}
+                  {filteredProducts.map((product) => {
+                    const selectedVariant = (() => {
+                      if (variantLabelFilter === 'all') return null;
+                      return (product?.variants || []).find((v) => String(v?.label || '').trim() === variantLabelFilter) || null;
+                    })();
+                    const displayPrice = (() => {
+                      if (selectedVariant) {
+                        const p = selectedVariant?.price;
+                        return Number.isFinite(Number(p)) ? `₹${Number(p)}` : '—';
+                      }
+                      return `₹${product.price}`;
+                    })();
+                    const displayStock = (() => {
+                      if (selectedVariant) {
+                        const s = selectedVariant?.stock;
+                        if (s === null || s === undefined) return '—';
+                        return `${s} ${product.unit}`;
+                      }
+                      return `${product.stock} ${product.unit}`;
+                    })();
+                    const isOut = (() => {
+                      if (selectedVariant) {
+                        const s = selectedVariant?.stock;
+                        const n = s === null || s === undefined ? 0 : Number(s);
+                        return !(n > 0);
+                      }
+                      return !(Number(product?.stock ?? 0) > 0);
+                    })();
+
+                    return (
+                      <tr key={product._id}>
+                        <td>{product.name}</td>
+                        <td>
+                          <img
+                            src={sanitizeImageUrl(product.image)}
+                            alt={product.name}
+                            onError={(e) => handleImageError(e)}
+                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                          />
+                        </td>
+                        <td>{product.category}</td>
+                        <td>{displayPrice}</td>
+                        <td>
+                          {displayStock}
+                          {isOut && (
+                            <span style={{ marginLeft: 6, color: '#b00020', fontSize: 12 }}>(Out)</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`status ${product.isActive ? 'active' : 'inactive'}`}>
+                            {product.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn" onClick={() => openEdit(product)}>Edit</button>
+                            <button className="btn btn-secondary" onClick={() => handleDeleteProduct(product._id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-=======
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map((product) => {
-                      const selectedVariant = (() => {
-                        if (variantLabelFilter === 'all') return null;
-                        return (product?.variants || []).find((v) => String(v?.label || '').trim() === variantLabelFilter) || null;
-                      })();
-                      const displayPrice = (() => {
-                        if (selectedVariant) {
-                          const p = selectedVariant?.price;
-                          return Number.isFinite(Number(p)) ? `₹${Number(p)}` : '—';
-                        }
-                        return `₹${product.price}`;
-                      })();
-                      const displayStock = (() => {
-                        if (selectedVariant) {
-                          const s = selectedVariant?.stock;
-                          if (s === null || s === undefined) return '—';
-                          return `${s} ${product.unit}`;
-                        }
-                        return `${product.stock} ${product.unit}`;
-                      })();
-                      const isOut = (() => {
-                        if (selectedVariant) {
-                          const s = selectedVariant?.stock;
-                          const n = s === null || s === undefined ? 0 : Number(s);
-                          return !(n > 0);
-                        }
-                        return !(Number(product?.stock ?? 0) > 0);
-                      })();
-
-                      return (
-                        <tr key={product._id}>
-                          <td>{product.name}</td>
-                          <td>{product.category}</td>
-                          <td>{displayPrice}</td>
-                          <td>
-                            {displayStock}
-                            {isOut && (
-                              <span style={{ marginLeft: 6, color: '#b00020', fontSize: 12 }}>(Out)</span>
-                            )}
-                          </td>
-                          <td>
-                            <span className={`status ${product.isActive ? 'active' : 'inactive'}`}>
-                              {product.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="btn" onClick={() => openEdit(product)}>Edit</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             </div>
           </div>
         )}
@@ -1027,33 +986,83 @@ const AdminPanel = () => {
               <table>
                 <thead><tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {orders.map(o => (
-                    <tr key={o._id}>
-                      <td>{o.orderNumber}</td>
-                      <td>{o.user?.name}</td>
-                      <td>₹{o.totalAmount}</td>
+                  {orders.map((order) => (
+                    <tr key={order._id}>
+                      <td>{order.orderNumber}</td>
+                      <td>{order.user?.name}</td>
+                      <td>₹{order.totalAmount}</td>
                       <td>
-                        <select value={o.status} onChange={e => updateOrderStatus(o._id, e.target.value)}>
-                          <option value="CREATED">Created</option>
-                          <option value="ADMIN_CONFIRMED">Confirmed</option>
-                          <option value="SHIPPED">Shipped</option>
-                          <option value="DELIVERED">Delivered</option>
-                          <option value="CANCELLED">Cancelled</option>
-                        </select>
+                        {(() => {
+                          const normalizeLegacy = (s) => {
+                            const map = {
+                              pending: 'CREATED',
+                              confirmed: 'ADMIN_CONFIRMED',
+                              processing: 'ADMIN_CONFIRMED',
+                              shipped: 'SHIPPED',
+                              delivered: 'DELIVERED',
+                              cancelled: 'CANCELLED',
+                            };
+                            return map[s] || s;
+                          };
+                          const from = normalizeLegacy(order.status);
+                          const allowedNext = {
+                            CREATED: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                            PAYMENT_PENDING: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                            PAID: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                            ADMIN_CONFIRMED: ['SHIPPED', 'CANCELLED'],
+                            SHIPPED: ['DELIVERED'],
+                            DELIVERED: [],
+                            CANCELLED: [],
+                          };
+                          const valueMap = {
+                            CREATED: 'ADMIN_CONFIRMED',
+                            PAYMENT_PENDING: 'ADMIN_CONFIRMED',
+                            PAID: 'ADMIN_CONFIRMED',
+                            ADMIN_CONFIRMED: 'ADMIN_CONFIRMED',
+                            SHIPPED: 'SHIPPED',
+                            DELIVERED: 'DELIVERED',
+                            CANCELLED: 'CANCELLED',
+                          };
+                          const currentValue = valueMap[from] || 'ADMIN_CONFIRMED';
+                          const allowed = new Set([currentValue, ...(allowedNext[from] || [])]);
+                          const handleChange = (e) => updateOrderStatus(order._id, e.target.value);
+                          return (
+                            <select value={currentValue} onChange={handleChange}>
+                              <option value="ADMIN_CONFIRMED" disabled={!allowed.has('ADMIN_CONFIRMED')}>Confirmed</option>
+                              <option value="SHIPPED" disabled={!allowed.has('SHIPPED')}>Shipped</option>
+                              <option value="DELIVERED" disabled={!allowed.has('DELIVERED')}>Delivered</option>
+                              <option value="CANCELLED" disabled={!allowed.has('CANCELLED')}>Cancelled</option>
+                            </select>
+                          );
+                        })()}
                       </td>
+                      <td>{new Date(order.createdAt).toLocaleDateString()}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn-sm btn-outline" onClick={() => setOrderDetail(o)}>View</button>
-                          {o.paymentMethod === 'cod' && o.status !== 'DELIVERED' && o.status !== 'CANCELLED' && (
-                            <button className="btn-sm btn-primary" onClick={() => quickDeliverCOD(o)}>COD Deliver</button>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <button className="btn-sm btn-outline" onClick={() => setOrderDetail(order)}>View Details</button>
+                          {String(order?.paymentMethod).toLowerCase() === 'cod' && !['DELIVERED', 'CANCELLED', 'cancelled'].includes(String(order?.status)) && (
+                            <button
+                              type="button"
+                              className="btn-sm btn-primary"
+                              onClick={() => quickDeliverCOD(order)}
+                              title="Confirm → Ship → Deliver"
+                            >
+                              Deliver (COD)
+                            </button>
                           )}
-                          {o.paymentMethod !== 'cod' && !['ADMIN_CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].includes(o.status) && (
-                            <button className="btn-sm btn-edit" onClick={() => quickConfirmOnline(o)}>Confirm Online</button>
+                          {(String(order?.paymentMethod).toLowerCase() !== 'cod') && (String(order?.status) === 'PAID') && (
+                            <button
+                              type="button"
+                              className="btn-sm btn-edit"
+                              onClick={() => quickConfirmOnline(order)}
+                              title="Confirm paid order"
+                            >
+                              Confirm (Online)
+                            </button>
                           )}
                         </div>
                       </td>
                     </tr>
-<<<<<<< HEAD
                   ))}
                 </tbody>
               </table>
@@ -1065,7 +1074,7 @@ const AdminPanel = () => {
           <div className="settings-management">
             <h2>Settings</h2>
             <form onSubmit={handleUpdateSettings}>
-              <div style={{ display: 'grid', gap: '20px', maxWidth: '600px', background: 'white', padding: '20px', borderRadius: '8px' }}>
+              <div className="settings-card">
                 <div className="form-group">
                   <label>Max Delivery Distance (KM)</label>
                   <input type="number" className="form-control" value={settings.maxDeliveryDistance} onChange={e => setSettings({ ...settings, maxDeliveryDistance: e.target.value })} />
@@ -1075,7 +1084,7 @@ const AdminPanel = () => {
                   <input type="number" className="form-control" value={settings.freeDeliveryThreshold} onChange={e => setSettings({ ...settings, freeDeliveryThreshold: e.target.value })} />
                 </div>
 
-                <div style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px', background: '#f9f9f9' }}>
+                <div className="settings-section">
                   <label style={{ fontWeight: '600', display: 'block', marginBottom: '10px' }}>Store Geolocation & Address</label>
 
                   {/* Address Search */}
@@ -1143,7 +1152,7 @@ const AdminPanel = () => {
                 />
 
 
-                <div style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px', background: '#f9f9f9' }}>
+                <div className="settings-section">
                   <label style={{ fontWeight: '600', display: 'block', marginBottom: '10px' }}>Delivery Slabs (KM)</label>
                   {settings.deliverySlabs.map((s, i) => (
                     <div key={i} style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
@@ -1159,327 +1168,196 @@ const AdminPanel = () => {
                 </div>
 
                 <button type="submit" className="btn btn-primary" disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save Settings'}</button>
-=======
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order._id}>
-                        <td>{order.orderNumber}</td>
-                        <td>{order.user?.name}</td>
-                        <td>₹{order.totalAmount}</td>
-                        <td>
-                          {(() => {
-                            const normalizeLegacy = (s) => {
-                              const map = {
-                                pending: 'CREATED',
-                                confirmed: 'ADMIN_CONFIRMED',
-                                processing: 'ADMIN_CONFIRMED',
-                                shipped: 'SHIPPED',
-                                delivered: 'DELIVERED',
-                                cancelled: 'CANCELLED',
-                              };
-                              return map[s] || s;
-                            };
-                            const from = normalizeLegacy(order.status);
-                            const allowedNext = {
-                              CREATED: ['ADMIN_CONFIRMED', 'CANCELLED'],
-                              PAYMENT_PENDING: ['ADMIN_CONFIRMED', 'CANCELLED'],
-                              PAID: ['ADMIN_CONFIRMED', 'CANCELLED'],
-                              ADMIN_CONFIRMED: ['SHIPPED', 'CANCELLED'],
-                              SHIPPED: ['DELIVERED'],
-                              DELIVERED: [],
-                              CANCELLED: [],
-                            };
-                            const valueMap = {
-                              CREATED: 'ADMIN_CONFIRMED',
-                              PAYMENT_PENDING: 'ADMIN_CONFIRMED',
-                              PAID: 'ADMIN_CONFIRMED',
-                              ADMIN_CONFIRMED: 'ADMIN_CONFIRMED',
-                              SHIPPED: 'SHIPPED',
-                              DELIVERED: 'DELIVERED',
-                              CANCELLED: 'CANCELLED',
-                            };
-                            const currentValue = valueMap[from] || 'ADMIN_CONFIRMED';
-                            const allowed = new Set([currentValue, ...(allowedNext[from] || [])]);
-                            const handleChange = (e) => updateOrderStatus(order._id, e.target.value);
-                            return (
-                              <select value={currentValue} onChange={handleChange}>
-                                <option value="ADMIN_CONFIRMED" disabled={!allowed.has('ADMIN_CONFIRMED')}>Confirmed</option>
-                                <option value="SHIPPED" disabled={!allowed.has('SHIPPED')}>Shipped</option>
-                                <option value="DELIVERED" disabled={!allowed.has('DELIVERED')}>Delivered</option>
-                                <option value="CANCELLED" disabled={!allowed.has('CANCELLED')}>Cancelled</option>
-                              </select>
-                            );
-                          })()}
-                        </td>
-                        <td>{new Date(order.createdAt).toLocaleDateString()}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <button className="btn btn-sm" onClick={() => setOrderDetail(order)}>View Details</button>
-                            {String(order?.paymentMethod).toLowerCase() === 'cod' && !['DELIVERED', 'CANCELLED', 'cancelled'].includes(String(order?.status)) && (
-                              <button
-                                type="button"
-                                className="btn btn-sm"
-                                onClick={() => quickDeliverCOD(order)}
-                                title="Confirm → Ship → Deliver"
-                              >
-                                Deliver (COD)
-                              </button>
-                            )}
-                            {String(order?.paymentMethod).toLowerCase() !== 'cod' && (String(order?.status) === 'PAID') && (
-                              <button
-                                type="button"
-                                className="btn btn-sm"
-                                onClick={() => quickConfirmOnline(order)}
-                                title="Confirm paid order"
-                              >
-                                Confirm (Online)
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
               </div>
             </form>
           </div>
         )}
+        {/* Add Product Modal */}
+        {
+          showAddProduct && (
+            <div className="modal-overlay" onClick={() => setShowAddProduct(false)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>Add New Product</h3>
+                  <button className="btn-close" onClick={() => setShowAddProduct(false)}>✕</button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={handleAddProduct}>
+                    <div className="form-grid">
+                      <input type="text" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} required />
+                      <select value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
+                        <option value="" disabled>Select Category</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                      </select>
+                      <select value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
+                        <option value="" disabled>Select Unit</option>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                      <input type="number" placeholder="Price (₹)" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} required={newProduct.variants.length === 0} />
+                      <input type="number" placeholder="MRP (₹)" value={newProduct.mrp} onChange={e => setNewProduct({ ...newProduct, mrp: e.target.value })} />
+                      <input type="number" placeholder="Stock" value={newProduct.stock} onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })} required={newProduct.variants.length === 0} />
+                      <input type="text" placeholder="Image URL" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                      <textarea placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
+                    </div>
+                    {/* Variants Section for New Product */}
+                    <div className="variants-section">
+                      <h4>Variants (Optional)</h4>
+                      {newProduct.variants.map((v, i) => (
+                        <div key={i} className="variant-row">
+                          <input type="text" placeholder="Label (e.g. 500g)" value={v.label} onChange={e => { const n = [...newProduct.variants]; n[i].label = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
+                          <input type="number" placeholder="Price" value={v.price} onChange={e => { const n = [...newProduct.variants]; n[i].price = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
+                          <input type="number" placeholder="MRP" value={v.mrp} onChange={e => { const n = [...newProduct.variants]; n[i].mrp = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
+                          <input type="number" placeholder="Stock" value={v.stock} onChange={e => { const n = [...newProduct.variants]; n[i].stock = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
+                          <button type="button" className="btn-icon-danger" onClick={() => setNewProduct({ ...newProduct, variants: newProduct.variants.filter((_, idx) => idx !== i) })}>✕</button>
+                        </div>
+                      ))}
+                      <button type="button" className="btn btn-secondary" onClick={() => setNewProduct({ ...newProduct, variants: [...newProduct.variants, { label: '', price: '', mrp: '', stock: '', isActive: true }] })}>+ Add Variant</button>
+                    </div>
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary">Create Product</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        {/* Edit Product Modal */}
+        {
+          editingProduct && (
+            <div className="modal-overlay" onClick={() => setEditingProduct(null)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>Edit Product</h3>
+                  <button className="btn-close" onClick={() => setEditingProduct(null)}>✕</button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={handleUpdateProduct}>
+                    <div className="form-grid">
+                      <input type="text" placeholder="Product Name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
+                      <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
+                        <option value="" disabled>Select Category</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                      </select>
+                      <select value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
+                        <option value="" disabled>Select Unit</option>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                      <input type="number" placeholder="Price (₹)" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} required={editForm.variants.length === 0} />
+                      <input type="number" placeholder="MRP (₹)" value={editForm.mrp} onChange={e => setEditForm({ ...editForm, mrp: e.target.value })} />
+                      <input type="number" placeholder="Stock" value={editForm.stock} onChange={e => setEditForm({ ...editForm, stock: e.target.value })} required={editForm.variants.length === 0} />
+                      <input type="text" placeholder="Image URL" value={editForm.image} onChange={e => setEditForm({ ...editForm, image: e.target.value })} />
+                      <textarea placeholder="Description" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}></textarea>
+                    </div>
+                    {/* Variants Section for Edit Product */}
+                    <div className="variants-section">
+                      <h4>Variants</h4>
+                      {editForm.variants.map((v, i) => (
+                        <div key={i} className="variant-row">
+                          <input type="text" placeholder="Label" value={v.label} onChange={e => { const n = [...editForm.variants]; n[i].label = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
+                          <input type="number" placeholder="Price" value={v.price} onChange={e => { const n = [...editForm.variants]; n[i].price = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
+                          <input type="number" placeholder="MRP" value={v.mrp} onChange={e => { const n = [...editForm.variants]; n[i].mrp = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
+                          <input type="number" placeholder="Stock" value={v.stock} onChange={e => { const n = [...editForm.variants]; n[i].stock = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
+                          <label className="variant-active">
+                            <input type="checkbox" checked={v.isActive} onChange={e => { const n = [...editForm.variants]; n[i].isActive = e.target.checked; setEditForm({ ...editForm, variants: n }); }} /> Active
+                          </label>
+                          <button type="button" className="btn-icon-danger" onClick={() => setEditForm({ ...editForm, variants: editForm.variants.filter((_, idx) => idx !== i) })}>✕</button>
+                        </div>
+                      ))}
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditForm({ ...editForm, variants: [...editForm.variants, { label: '', price: '', mrp: '', stock: '', isActive: true }] })}>+ Add Variant</button>
+                    </div>
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Update Product'}</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        {
+          orderDetail && (
+            <div className="modal-overlay" onClick={() => setOrderDetail(null)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>Order {orderDetail.orderNumber}</h3>
+                  <button className="btn-close" onClick={() => setOrderDetail(null)}>✕</button>
+                </div>
+                <div className="modal-body">
+                  <div className="modal-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Customer Details</h4>
+                      <p style={{ margin: '4px 0' }}><strong>Name:</strong> {orderDetail.user?.name}</p>
+                      <p style={{ margin: '4px 0' }}><strong>Phone:</strong> {orderDetail.shippingAddress?.phone}</p>
+                      <p style={{ margin: '4px 0' }}><strong>Address:</strong><br />
+                        {orderDetail.shippingAddress?.street},<br />
+                        {orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.zipCode}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Order Info</h4>
+                      <p style={{ margin: '4px 0' }}><strong>Date:</strong> {new Date(orderDetail.createdAt).toLocaleString()}</p>
+                      <p style={{ margin: '4px 0' }}><strong>Status:</strong> <span className={`status-pill ${orderDetail.status?.toLowerCase()}`}>{orderDetail.status}</span></p>
+                      <p style={{ margin: '4px 0' }}><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{orderDetail.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</span></p>
+                      <p style={{ margin: '4px 0' }}><strong>Payment Status:</strong> <span className={`status-pill ${orderDetail.paymentStatus?.toLowerCase() === 'paid' ? 'delivered' : 'created'}`}>{orderDetail.paymentStatus}</span></p>
+                    </div>
+                  </div>
+
+                  <div className="modal-section">
+                    <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Items</h4>
+                    <table className="mini-table">
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>Price</th>
+                          <th>Qty</th>
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderDetail.items?.map((item, i) => (
+                          <tr key={i}>
+                            <td>
+                              <div style={{ fontWeight: '500' }}>{item.name}</div>
+                              {item.variantLabel && <div style={{ fontSize: '0.8rem', color: '#666' }}>{item.variantLabel}</div>}
+                            </td>
+                            <td>₹{item.price}</td>
+                            <td>{item.quantity}</td>
+                            <td>₹{item.subtotal || (item.price * item.quantity)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="modal-section" style={{ textAlign: 'right', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                    <p style={{ margin: '5px 0' }}>Subtotal: <strong>₹{orderDetail.totalAmount - (orderDetail.deliveryCharge || 0)}</strong></p>
+                    <p style={{ margin: '5px 0' }}>Delivery Charge: <strong>₹{orderDetail.deliveryCharge || 0}</strong></p>
+                    <p style={{ fontSize: '1.2rem', margin: '10px 0' }}>Total: <strong style={{ color: '#2c5530' }}>₹{orderDetail.totalAmount}</strong></p>
+                  </div>
+
+                  {orderDetail.shippingAddress?.latitude && (
+                    <button className="btn btn-outline" style={{ width: '100%', marginTop: '10px' }} onClick={() => setShowOrderMap(true)}>
+                      🗺️ View Delivery Route
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        <MapModal
+          isOpen={showOrderMap}
+          onClose={() => setShowOrderMap(false)}
+          initialLocation={{ lat: orderDetail?.shippingAddress?.latitude, lng: orderDetail?.shippingAddress?.longitude }}
+          shopLocation={{ lat: parseFloat(settings.storeLatitude), lng: parseFloat(settings.storeLongitude) }}
+          viewOnly={true}
+          title={`Route Visualization — ${orderDetail?.orderNumber}`}
+        />
       </div>
-
-      {/* Add Product Modal */}
-      {showAddProduct && (
-        <div className="modal-overlay" onClick={() => setShowAddProduct(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-<<<<<<< HEAD
-              <h3>Add New Product</h3>
-              <button className="btn-close" onClick={() => setShowAddProduct(false)}>✕</button>
-=======
-              <h3 style={{ margin: 0 }}>Order Details — {orderDetail.orderNumber}</h3>
-              <button className="modal-close" onClick={() => setOrderDetail(null)}>Close</button>
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleAddProduct}>
-                <div className="form-grid">
-                  <input type="text" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} required />
-                  <select value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
-                    <option value="" disabled>Select Category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                  </select>
-                  <select value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
-                    <option value="" disabled>Select Unit</option>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                  <input type="number" placeholder="Price (₹)" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} required />
-                  <input type="number" placeholder="MRP (₹)" value={newProduct.mrp} onChange={e => setNewProduct({ ...newProduct, mrp: e.target.value })} />
-                  <input type="number" placeholder="Stock" value={newProduct.stock} onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })} required />
-                  <input type="text" placeholder="Image URL" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
-                  <textarea placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
-                </div>
-<<<<<<< HEAD
-                {/* Variants Section for New Product */}
-                <div className="variants-section">
-                  <h4>Variants (Optional)</h4>
-                  {newProduct.variants.map((v, i) => (
-                    <div key={i} className="variant-row">
-                      <input type="text" placeholder="Label (e.g. 500g)" value={v.label} onChange={e => { const n = [...newProduct.variants]; n[i].label = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
-                      <input type="number" placeholder="Price" value={v.price} onChange={e => { const n = [...newProduct.variants]; n[i].price = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
-                      <input type="number" placeholder="MRP" value={v.mrp} onChange={e => { const n = [...newProduct.variants]; n[i].mrp = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
-                      <input type="number" placeholder="Stock" value={v.stock} onChange={e => { const n = [...newProduct.variants]; n[i].stock = e.target.value; setNewProduct({ ...newProduct, variants: n }); }} />
-                      <button type="button" className="btn-icon-danger" onClick={() => setNewProduct({ ...newProduct, variants: newProduct.variants.filter((_, idx) => idx !== i) })}>✕</button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-secondary" onClick={() => setNewProduct({ ...newProduct, variants: [...newProduct.variants, { label: '', price: '', mrp: '', stock: '', isActive: true }] })}>+ Add Variant</button>
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-primary">Create Product</button>
-                </div>
-              </form>
-=======
-              </div>
-
-              <div className="modal-section">
-                <h4 style={{ margin: '8px 0' }}>Shipping Address</h4>
-                <div style={{ color: '#374151' }}>
-                  <div>{orderDetail.shippingAddress?.name}</div>
-                  <div>{orderDetail.shippingAddress?.street}</div>
-                  <div>{orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.state} {orderDetail.shippingAddress?.zipCode}</div>
-                  <div>{orderDetail.shippingAddress?.country}</div>
-                  <div>{orderDetail.shippingAddress?.phone}</div>
-                </div>
-              </div>
-
-              <div className="modal-section">
-                <h4 style={{ margin: '8px 0' }}>Items</h4>
-                <table className="mini-table">
-                  <thead>
-                    <tr>
-                      <th>Item</th>
-                      <th>Variant</th>
-                      <th>Qty</th>
-                      <th>Price</th>
-                      <th>Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(orderDetail.items || []).map((it, i) => (
-                      <tr key={i}>
-                        <td>{it.name || it.product?.name}</td>
-                        <td>{it.variantLabel || '—'}</td>
-                        <td>{it.quantity}</td>
-                        <td>₹{it.price}</td>
-                        <td>₹{it.subtotal}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th colSpan={4} style={{ textAlign: 'right' }}>Total</th>
-                      <th>₹{orderDetail.totalAmount}</th>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
->>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Product Modal */}
-      {editingProduct && (
-        <div className="modal-overlay" onClick={() => setEditingProduct(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit Product</h3>
-              <button className="btn-close" onClick={() => setEditingProduct(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleUpdateProduct}>
-                <div className="form-grid">
-                  <input type="text" placeholder="Product Name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
-                  <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
-                    <option value="" disabled>Select Category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                  </select>
-                  <select value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
-                    <option value="" disabled>Select Unit</option>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                  <input type="number" placeholder="Price (₹)" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} required />
-                  <input type="number" placeholder="MRP (₹)" value={editForm.mrp} onChange={e => setEditForm({ ...editForm, mrp: e.target.value })} />
-                  <input type="number" placeholder="Stock" value={editForm.stock} onChange={e => setEditForm({ ...editForm, stock: e.target.value })} required />
-                  <input type="text" placeholder="Image URL" value={editForm.image} onChange={e => setEditForm({ ...editForm, image: e.target.value })} />
-                  <textarea placeholder="Description" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}></textarea>
-                </div>
-                {/* Variants Section for Edit Product */}
-                <div className="variants-section">
-                  <h4>Variants</h4>
-                  {editForm.variants.map((v, i) => (
-                    <div key={i} className="variant-row">
-                      <input type="text" placeholder="Label" value={v.label} onChange={e => { const n = [...editForm.variants]; n[i].label = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
-                      <input type="number" placeholder="Price" value={v.price} onChange={e => { const n = [...editForm.variants]; n[i].price = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
-                      <input type="number" placeholder="MRP" value={v.mrp} onChange={e => { const n = [...editForm.variants]; n[i].mrp = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
-                      <input type="number" placeholder="Stock" value={v.stock} onChange={e => { const n = [...editForm.variants]; n[i].stock = e.target.value; setEditForm({ ...editForm, variants: n }); }} />
-                      <label className="variant-active">
-                        <input type="checkbox" checked={v.isActive} onChange={e => { const n = [...editForm.variants]; n[i].isActive = e.target.checked; setEditForm({ ...editForm, variants: n }); }} /> Active
-                      </label>
-                      <button type="button" className="btn-icon-danger" onClick={() => setEditForm({ ...editForm, variants: editForm.variants.filter((_, idx) => idx !== i) })}>✕</button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditForm({ ...editForm, variants: [...editForm.variants, { label: '', price: '', mrp: '', stock: '', isActive: true }] })}>+ Add Variant</button>
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Update Product'}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {orderDetail && (
-        <div className="modal-overlay" onClick={() => setOrderDetail(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Order {orderDetail.orderNumber}</h3>
-              <button className="btn-close" onClick={() => setOrderDetail(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="modal-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Customer Details</h4>
-                  <p style={{ margin: '4px 0' }}><strong>Name:</strong> {orderDetail.user?.name}</p>
-                  <p style={{ margin: '4px 0' }}><strong>Phone:</strong> {orderDetail.shippingAddress?.phone}</p>
-                  <p style={{ margin: '4px 0' }}><strong>Address:</strong><br />
-                    {orderDetail.shippingAddress?.street},<br />
-                    {orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.zipCode}
-                  </p>
-                </div>
-                <div>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Order Info</h4>
-                  <p style={{ margin: '4px 0' }}><strong>Date:</strong> {new Date(orderDetail.createdAt).toLocaleString()}</p>
-                  <p style={{ margin: '4px 0' }}><strong>Status:</strong> <span className={`status-pill ${orderDetail.status?.toLowerCase()}`}>{orderDetail.status}</span></p>
-                  <p style={{ margin: '4px 0' }}><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{orderDetail.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</span></p>
-                  <p style={{ margin: '4px 0' }}><strong>Payment Status:</strong> <span className={`status-pill ${orderDetail.paymentStatus?.toLowerCase() === 'paid' ? 'delivered' : 'created'}`}>{orderDetail.paymentStatus}</span></p>
-                </div>
-              </div>
-
-              <div className="modal-section">
-                <h4 style={{ margin: '0 0 10px 0', color: '#6b7280' }}>Items</h4>
-                <table className="mini-table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Price</th>
-                      <th>Qty</th>
-                      <th>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderDetail.items?.map((item, i) => (
-                      <tr key={i}>
-                        <td>
-                          <div style={{ fontWeight: '500' }}>{item.name}</div>
-                          {item.variantLabel && <div style={{ fontSize: '0.8rem', color: '#666' }}>{item.variantLabel}</div>}
-                        </td>
-                        <td>₹{item.price}</td>
-                        <td>{item.quantity}</td>
-                        <td>₹{item.subtotal || (item.price * item.quantity)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="modal-section" style={{ textAlign: 'right', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-                <p style={{ margin: '5px 0' }}>Subtotal: <strong>₹{orderDetail.totalAmount - (orderDetail.deliveryCharge || 0)}</strong></p>
-                <p style={{ margin: '5px 0' }}>Delivery Charge: <strong>₹{orderDetail.deliveryCharge || 0}</strong></p>
-                <p style={{ fontSize: '1.2rem', margin: '10px 0' }}>Total: <strong style={{ color: '#2c5530' }}>₹{orderDetail.totalAmount}</strong></p>
-              </div>
-
-              {orderDetail.shippingAddress?.latitude && (
-                <button className="btn btn-outline" style={{ width: '100%', marginTop: '10px' }} onClick={() => setShowOrderMap(true)}>
-                  🗺️ View Delivery Route
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <MapModal
-        isOpen={showOrderMap}
-        onClose={() => setShowOrderMap(false)}
-        initialLocation={{ lat: orderDetail?.shippingAddress?.latitude, lng: orderDetail?.shippingAddress?.longitude }}
-        shopLocation={{ lat: parseFloat(settings.storeLatitude), lng: parseFloat(settings.storeLongitude) }}
-        viewOnly={true}
-        title={`Route Visualization — ${orderDetail?.orderNumber}`}
-      />
     </div>
   );
 };

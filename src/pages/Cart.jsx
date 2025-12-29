@@ -3,6 +3,7 @@ import { useCart } from '../contexts/CartContext';
 import { Link } from 'react-router-dom';
 import './Cart.css';
 import { useI18n } from '../contexts/I18nContext';
+import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
 
 const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
   const [localQty, setLocalQty] = React.useState(String(item.quantity));
@@ -16,7 +17,7 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
   const variantLabel = String(item?.variantLabel || '').trim();
   const name = product?.name || item?.name || 'Product';
   const unit = product?.unit || 'unit';
-  const imgSrc = product?.image || '/placeholder-product.jpg';
+  const imgSrc = product?.image || '/placeholder-product.svg'; // Updated placeholder to .svg
 
   // Try to find available stock from product or variant
   const availableStock = (() => {
@@ -34,7 +35,8 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
       if (!isNaN(parsed) && parsed > 0) {
         const capped = Math.min(parsed, availableStock);
         if (capped !== item.quantity) {
-          handleQuantityChange(product._id || item.productId, variantId, capped);
+          const pId = item.productId || (product && product._id) || item.product;
+          if (pId) handleQuantityChange(String(pId), variantId, capped);
         }
       }
     }
@@ -42,49 +44,60 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
 
   const onBlur = () => {
     if (localQty === '' || parseInt(localQty) <= 0) {
-      handleQuantityChange(product._id || item.productId, variantId, 0); // Removes if 0
+      const pId = item.productId || (product && product._id) || item.product;
+      handleQuantityChange(String(pId || 'removed'), variantId, 0, item._id); // Removes if 0
     } else {
       const parsed = Math.min(parseInt(localQty), availableStock);
       setLocalQty(String(parsed));
     }
   };
 
+  const isUnavailable = !product || Object.keys(product).length === 0 || !product._id;
+
   return (
-    <div className="cart-item">
+    <div className={`cart-item ${isUnavailable ? 'unavailable' : ''}`}>
       <img
-        src={imgSrc}
+        src={isUnavailable ? '/placeholder-product.svg' : sanitizeImageUrl(imgSrc)}
         alt={name}
-        onError={(e) => {
-          if (e.currentTarget.src.endsWith('/placeholder-product.jpg')) return;
-          e.currentTarget.onerror = null;
-          e.currentTarget.src = '/placeholder-product.jpg';
-        }}
+        onError={(e) => handleImageError(e)}
       />
       <div className="item-details">
-        <h3>{name}</h3>
-        {variantLabel ? (
+        <h3 className={isUnavailable ? 'unavailable' : ''}>{name}</h3>
+        {isUnavailable ? (
+          <span className="unavailable-badge">{t('cart.unavailable', 'Unavailable')}</span>
+        ) : variantLabel ? (
           <p>₹{item.price} ({variantLabel})</p>
         ) : (
           <p>₹{item.price} {t('cart.per', 'per')} {unit}</p>
         )}
       </div>
       <div className="quantity-controls">
-        <button onClick={() => handleQuantityChange(product._id || item.productId, variantId, item.quantity - 1)}>-</button>
+        <button
+          disabled={isUnavailable}
+          onClick={() => handleQuantityChange(item.productId || product._id || item.product, variantId, item.quantity - 1)}
+        >-</button>
         <input
           type="number"
           className="quantity-input"
           value={localQty}
+          disabled={isUnavailable}
           onFocus={(e) => e.target.select()}
           onChange={(e) => onQtyChange(e.target.value)}
           onBlur={onBlur}
         />
-        <button onClick={() => handleQuantityChange(product._id || item.productId, variantId, item.quantity + 1)}>+</button>
+        <button
+          disabled={isUnavailable}
+          onClick={() => handleQuantityChange(item.productId || product._id || item.product, variantId, item.quantity + 1)}
+        >+</button>
       </div>
       <div className="item-total">
         ₹{(item.price * item.quantity).toFixed(2)}
       </div>
       <button
-        onClick={() => removeFromCart(product._id || item.productId, variantId)}
+        onClick={() => {
+          const pId = item.productId || (product && product._id) || item.product;
+          removeFromCart(String(pId || 'removed'), variantId, item._id);
+        }}
         className="remove-btn"
       >
         {t('cart.remove', 'Remove')}
@@ -97,9 +110,9 @@ const Cart = () => {
   const { cart, updateCartItem, removeFromCart, loading } = useCart();
   const { t } = useI18n();
 
-  const handleQuantityChange = async (productId, variantId, newQuantity) => {
+  const handleQuantityChange = async (productId, variantId, newQuantity, cartItemId = null) => {
     if (newQuantity <= 0) {
-      await removeFromCart(productId, variantId);
+      await removeFromCart(productId, variantId, cartItemId);
     } else {
       await updateCartItem(productId, newQuantity, variantId);
     }
@@ -120,6 +133,8 @@ const Cart = () => {
       </div>
     );
   }
+
+  const hasUnavailableItems = cart.items.some(it => !it.product || Object.keys(it.product).length === 0 || !it.product._id);
 
   return (
     <div className="cart-page">
@@ -147,7 +162,17 @@ const Cart = () => {
               <span>{t('cart.total_amount', 'Total Amount:')}</span>
               <span>₹{cart.totalAmount.toFixed(2)}</span>
             </div>
-            <Link to="/checkout" className="btn btn-primary checkout-btn">
+
+            {hasUnavailableItems && (
+              <div className="checkout-warning">
+                ⚠️ {t('cart.checkout_warning', 'Please remove unavailable items to proceed.')}
+              </div>
+            )}
+
+            <Link
+              to={hasUnavailableItems ? '#' : "/checkout"}
+              className={`btn btn-primary checkout-btn ${hasUnavailableItems ? 'disabled' : ''}`}
+            >
               {t('cart.checkout', 'Proceed to Checkout')}
             </Link>
           </div>

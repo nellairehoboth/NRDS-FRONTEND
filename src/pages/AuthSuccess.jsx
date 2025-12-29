@@ -6,42 +6,42 @@ const AuthSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const processed = React.useRef(false);
 
   useEffect(() => {
+    if (processed.current) return;
+
     const handleAuthSuccess = async () => {
       const token = searchParams.get('token');
       const error = searchParams.get('error');
 
-      if (error) {
-        console.error('OAuth error:', error);
-        navigate('/login?error=' + error);
+      if (error || !token) {
+        processed.current = true;
+        navigate('/login?error=' + (error || 'no_token'));
         return;
       }
 
-      if (token) {
-        try {
-          // Decode token to get user info (basic decode, not verification)
-          const payload = JSON.parse(atob(token.split('.')[1]));
+      processed.current = true;
+      try {
+        // Decode token to get user info (basic decode, not verification)
+        const payload = JSON.parse(atob(token.split('.')[1]));
 
-          // Create user object from token payload
-          const user = {
-            _id: payload.userId,
-            email: payload.email,
-            role: payload.role,
-            credits: payload.credits
-          };
+        // Create user object from token payload
+        const user = {
+          _id: payload.userId,
+          email: payload.email,
+          role: payload.role,
+          credits: payload.credits
+        };
 
-          // Login with the token and user data
-          await login(token, user);
+        // Login with the token and user data
+        await login(token, user);
 
-          // Redirect to home page
-          navigate('/');
-        } catch (error) {
-          console.error('Token processing error:', error);
-          navigate('/login?error=invalid_token');
-        }
-      } else {
-        navigate('/login?error=no_token');
+        // Redirect to home page
+        navigate('/');
+      } catch (error) {
+        console.error('Token processing error:', error);
+        navigate('/login?error=invalid_token');
       }
     };
 

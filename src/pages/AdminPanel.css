@@ -167,6 +167,8 @@
   background: #e5e7eb;
   border-radius: 12px;
   width: fit-content;
+  margin: 0 auto 32px;
+  /* Centered */
 }
 
 .admin-tabs button {
@@ -583,6 +585,47 @@ tr:hover td {
 }
 
 /* Settings Form */
+.settings-management {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.settings-management h2 {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.settings-card {
+  display: grid;
+  gap: 24px;
+  width: 100%;
+  max-width: 900px;
+  /* Bigger */
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  margin: 0 auto;
+  /* Centered */
+  border: 1px solid var(--border-color);
+}
+
+.settings-section {
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.settings-section label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 12px;
+  color: var(--text-main);
+}
+
 .settings-management .form-group {
   margin-bottom: 16px;
 }
@@ -712,22 +755,34 @@ tr:hover td {
 }
 
 .admin-notif-mark {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #2c5530;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--primary-color);
+  background: transparent;
+  color: var(--primary-color);
   font-weight: 600;
+  font-size: 0.8rem;
   cursor: pointer;
-}
-
-.admin-notif-mark:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .admin-notif-mark:hover:not(:disabled) {
-  border-color: #cfd8dc;
+  background: var(--primary-color);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(44, 85, 48, 0.2);
+}
+
+.admin-notif-mark:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.admin-notif-mark:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--border-color);
+  color: var(--text-muted);
 }
 
 .admin-notif-empty {
@@ -754,24 +809,36 @@ tr:hover td {
   background: #f8fafc;
 }
 
-.admin-notif-order {
-  font-weight: 700;
-  color: #2c5530;
+.admin-notif-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
 }
 
-.admin-notif-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+.admin-notif-user {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.9rem;
 }
 
-.admin-notif-meta {
-  display: flex;
-  justify-content: space-between;
-  color: #6b7280;
-  font-size: 12px;
+.admin-notif-body {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.admin-notif-time {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.admin-notif-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .admin-notif-meta .muted {

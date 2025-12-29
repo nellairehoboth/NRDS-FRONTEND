@@ -68,9 +68,12 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const removeFromCart = async (productId, variantId = null) => {
+  const removeFromCart = async (productId, variantId = null, cartItemId = null) => {
     try {
-      const qp = variantId ? `?variantId=${encodeURIComponent(String(variantId))}` : '';
+      let qp = variantId ? `?variantId=${encodeURIComponent(String(variantId))}` : '';
+      if (cartItemId) {
+        qp += (qp ? '&' : '?') + `cartItemId=${encodeURIComponent(String(cartItemId))}`;
+      }
       const response = await api.delete(`/api/cart/remove/${productId}${qp}`);
       setCart(response.data.cart);
       return { success: true };
