@@ -1,14 +1,93 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/axios';
+import { useNavigate } from 'react-router-dom';
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (document.getElementById('razorpay-checkout-js')) return resolve(true);
+    const script = document.createElement('script');
+    script.id = 'razorpay-checkout-js';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 const OrderDetails = () => {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retrying, setRetrying] = useState(false);
+  const navigate = useNavigate();
   const currency = (n) => `₹${Number(n || 0).toFixed(2)}`;
   const handlePrint = () => window.print();
+
+  const handleRetryPayment = async () => {
+    if (!order) return;
+    setRetrying(true);
+    try {
+      const ok = await loadRazorpayScript();
+      if (!ok) {
+        alert('Failed to load Razorpay SDK. Please check your connection.');
+        return;
+      }
+
+      const rpRes = await api.post('/api/orders/razorpay/order', { orderId: order._id });
+      if (!rpRes?.data?.success) {
+        alert(rpRes?.data?.message || 'Failed to initialize payment.');
+        return;
+      }
+
+      const { keyId, razorpayOrderId, amount, currency: rpCurrency } = rpRes.data;
+
+      const options = {
+        key: keyId,
+        amount,
+        currency: rpCurrency,
+        name: 'Nellai Rehoboth Department Store',
+        description: `Order #${order.orderNumber}`,
+        order_id: razorpayOrderId,
+        handler: async (rzp) => {
+          try {
+            const verifyRes = await api.post('/api/orders/razorpay/verify', {
+              orderId: order._id,
+              razorpay_order_id: rzp.razorpay_order_id,
+              razorpay_payment_id: rzp.razorpay_payment_id,
+              razorpay_signature: rzp.razorpay_signature,
+            });
+
+            if (verifyRes?.data?.success) {
+              alert('Payment successful!');
+              window.location.reload();
+            } else {
+              alert(verifyRes?.data?.message || 'Payment verification failed.');
+            }
+          } catch (err) {
+            console.error('Verify failed:', err);
+            alert('Payment verification failed.');
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            alert('Payment was cancelled.');
+          },
+        },
+        theme: { color: '#2c5530' },
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.open();
+    } catch (err) {
+      console.error('Retry error:', err);
+      const msg = err?.response?.data?.message || err.message || 'Failed to start payment retry.';
+      alert(msg);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const numberToWords = (num) => {
     const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
@@ -61,6 +140,32 @@ const OrderDetails = () => {
   if (error) return <div className="container"><h2>{error}</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
   if (!order) return <div className="container"><h2>Order not found</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
 
+  const isRestricted = ['PAYMENT_PENDING', 'CANCELLED', 'cancelled'].includes(order.status);
+
+  if (isRestricted) {
+    return (
+      <div className="order-details-page">
+        <div className="container" style={{ textAlign: 'center', marginTop: '50px' }}>
+          <div className="print-container" style={{ padding: '40px' }}>
+            <h2 style={{ color: '#ef4444' }}>Invoice Restricted</h2>
+            <p>Invoices are only generated for successful orders.</p>
+            <p>Current Status: <strong>{order.status}</strong></p>
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleRetryPayment}
+                disabled={retrying}
+              >
+                {retrying ? 'Starting Payment...' : 'Retry Payment'}
+              </button>
+              <Link to="/orders" className="btn" style={{ background: '#eee', color: '#333' }}>Back to My Orders</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Compute GST split rule: default CGST+SGST if TN, else IGST
   const storeState = 'Tamil Nadu';
   const shipState = order?.shippingAddress?.state || '';
@@ -103,7 +208,8 @@ const OrderDetails = () => {
     { qty: 0, taxable: 0, tax: 0, cgst: 0, sgst: 0, igst: 0, subtotal: 0 }
   );
 
-  const grandTotal = totals.subtotal; // subtotal already includes tax if inclusive pricing was used
+  const grandTotal = order.totalAmount;
+  const deliveryCharge = order.deliveryCharge || 0;
 
   return (
     <div className="order-details-page">
@@ -148,9 +254,9 @@ const OrderDetails = () => {
       <div className="container">
         <div className="invoice-header">
           <div>
-            <h1 style={{margin:'0 0 4px'}}>Tax Invoice</h1>
+            <h1 style={{ margin: '0 0 4px' }}>Tax Invoice</h1>
             <div>Order #{order.orderNumber}</div>
-            <div style={{color:'#6b7280'}}>Placed on {new Date(order.createdAt).toLocaleString()}</div>
+            <div style={{ color: '#6b7280' }}>Placed on {new Date(order.createdAt).toLocaleString()}</div>
           </div>
           <div className="print-actions no-print">
             <button className="btn btn-primary" onClick={handlePrint}>Print</button>
@@ -159,7 +265,7 @@ const OrderDetails = () => {
         </div>
 
         {/* STANDARD GST INVOICE (disabled for thermal-only) */}
-        <div className="print-container standard-invoice" style={{marginTop:16, display:'none'}}>
+        <div className="print-container standard-invoice" style={{ marginTop: 16, display: 'none' }}>
           <div className="invoice-grid">
             <div>
               <div className="invoice-brand">Nellai Rehoboth Department Store</div>
@@ -168,7 +274,7 @@ const OrderDetails = () => {
               <div>Phone: +91 99420 75849</div>
               <div>GSTIN: <span className="muted">Please provide</span></div>
             </div>
-            <div style={{textAlign:'right'}}>
+            <div style={{ textAlign: 'right' }}>
               <div><strong>Status:</strong> {order.status}</div>
               <div><strong>Payment:</strong> {order.paymentMethod?.toUpperCase()} — {order.paymentStatus}</div>
               <div><strong>Invoice Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</div>
@@ -179,7 +285,7 @@ const OrderDetails = () => {
           <table className="bill-table">
             <thead>
               <tr>
-                <th style={{width:'34%'}}>Item</th>
+                <th style={{ width: '34%' }}>Item</th>
                 <th>HSN</th>
                 <th>Qty</th>
                 <th>Rate</th>
@@ -210,24 +316,24 @@ const OrderDetails = () => {
             </tbody>
           </table>
 
-          <div className="invoice-grid" style={{marginTop:12}}>
+          <div className="invoice-grid" style={{ marginTop: 12 }}>
             <div>
               {order.shippingAddress && (
                 <div>
                   <h3>Bill To</h3>
-                  <div className="print-container" style={{padding:12}}>
+                  <div className="print-container" style={{ padding: 12 }}>
                     <div>{order.shippingAddress.name}</div>
                     <div>{order.shippingAddress.street}</div>
                     <div>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</div>
                     <div>{order.shippingAddress.country}</div>
                     {order.shippingAddress.phone && <div>Phone: {order.shippingAddress.phone}</div>}
-                    <div className="muted" style={{marginTop:6}}>Place of Supply: {order.shippingAddress.state || '-'}</div>
+                    <div className="muted" style={{ marginTop: 6 }}>Place of Supply: {order.shippingAddress.state || '-'}</div>
                   </div>
                 </div>
               )}
-              <div style={{marginTop:12}}>
+              <div style={{ marginTop: 12 }}>
                 <h3>Bank & UPI</h3>
-                <div className="print-container" style={{padding:12}}>
+                <div className="print-container" style={{ padding: 12 }}>
                   <div><strong>Bank:</strong> <span className="muted">Provide Bank Name</span></div>
                   <div><strong>Branch:</strong> <span className="muted">Provide Branch</span></div>
                   <div><strong>Account No:</strong> <span className="muted">Provide Account</span></div>
@@ -248,19 +354,20 @@ const OrderDetails = () => {
                 <div className="totals-row"><span>IGST</span><strong>{currency(totals.igst)}</strong></div>
               )}
               <div className="totals-row"><span>Tax Total</span><strong>{currency(totals.tax)}</strong></div>
+              <div className="totals-row"><span>Delivery Fee</span><strong>{currency(deliveryCharge)}</strong></div>
               <div className="totals-row"><span>Grand Total</span><strong>{currency(grandTotal)}</strong></div>
-              <div className="totals-row"><span>Amount in Words</span><strong style={{textAlign:'right', maxWidth:260}}>{amountInWords(grandTotal)}</strong></div>
+              <div className="totals-row"><span>Amount in Words</span><strong style={{ textAlign: 'right', maxWidth: 260 }}>{amountInWords(grandTotal)}</strong></div>
             </div>
           </div>
 
-          <div style={{marginTop:16, color:'#6b7280'}}>
+          <div style={{ marginTop: 16, color: '#6b7280' }}>
             Declaration: Goods once sold will not be taken back. Subject to Erode jurisdiction.
           </div>
-          <div style={{marginTop:24, display:'flex', justifyContent:'space-between'}}>
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
             <div className="muted">This is a computer generated invoice.</div>
-            <div style={{textAlign:'right'}}>
+            <div style={{ textAlign: 'right' }}>
               <div>For Nellai Rehoboth Department Store</div>
-              <div style={{height:40}}></div>
+              <div style={{ height: 40 }}></div>
               <div>Authorised Signatory</div>
             </div>
           </div>
@@ -272,23 +379,23 @@ const OrderDetails = () => {
             <div className="title">நெல்லை ரெகோபோத்</div>
             <div className="sub">டிபார்ட்மென்ட் ஸ்டோர், தமிழகத்தில்</div>
           </div>
-          <div className="mono" style={{marginTop:4}}>
+          <div className="mono" style={{ marginTop: 4 }}>
             BMOPP6722M1ZH, CELL 9942175849
           </div>
-          <div className="mono" style={{marginTop:2}}>
-            No: {order.orderNumber}  {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+          <div className="mono" style={{ marginTop: 2 }}>
+            No: {order.orderNumber}  {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
-          <div className="mono" style={{marginTop:2}}>
+          <div className="mono" style={{ marginTop: 2 }}>
             Name : {order?.shippingAddress?.name || '-'}
           </div>
           <div className="hr" />
           <table>
             <thead>
               <tr className="mono">
-                <th style={{width:'55%'}}>PRODUCT NAME</th>
-                <th style={{width:'10%'}}>QTY</th>
-                <th style={{width:'15%'}}>RATE</th>
-                <th style={{width:'20%', textAlign:'right'}}>AMOUNT</th>
+                <th style={{ width: '55%' }}>PRODUCT NAME</th>
+                <th style={{ width: '10%' }}>QTY</th>
+                <th style={{ width: '15%' }}>RATE</th>
+                <th style={{ width: '20%', textAlign: 'right' }}>AMOUNT</th>
               </tr>
             </thead>
             <tbody>
@@ -308,14 +415,16 @@ const OrderDetails = () => {
           <div className="hr" />
           <div className="mono tot-line"><span className="tot-title">TOTAL AMT :</span><span className="tot-title">{Number(grandTotal).toFixed(2)}</span></div>
           <div className="hr" />
+          <div className="mono tot-line"><span>Items Subtotal</span><span>{Number(totals.subtotal).toFixed(2)}</span></div>
+          <div className="mono tot-line"><span>Delivery Fee</span><span>{Number(deliveryCharge).toFixed(2)}</span></div>
           <div className="mono tot-line"><span>Opening Balance</span><span>0.00</span></div>
           <div className="mono tot-line"><span>Bill Amount</span><span>{Number(grandTotal).toFixed(2)}</span></div>
           <div className="mono tot-line"><span>Closing Balance</span><span>{Number(grandTotal).toFixed(2)}</span></div>
           <div className="hr" />
-          <div className="mono t-center" style={{marginTop:8}}>
+          <div className="mono t-center" style={{ marginTop: 8 }}>
             நிலவெள்வரிசOLD26kgrs1300
           </div>
-          <div className="mono t-center" style={{marginBottom:8}}>
+          <div className="mono t-center" style={{ marginBottom: 8 }}>
             வெள்ளவரிசOLD26kgRs1400
           </div>
         </div>

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import './Checkout.css';
 import { useI18n } from '../contexts/I18nContext';
+import { SHOP_LOCATION } from '../config';
+import MapModal from '../components/MapModal';
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -25,6 +27,12 @@ const Checkout = () => {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [shippingLocation, setShippingLocation] = useState(null); // { lat, lng }
+  const [showMap, setShowMap] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [distanceError, setDistanceError] = useState('');
+  const isGpsUpdate = useRef(false);
+
   const [shippingAddress, setShippingAddress] = useState({
     name: user?.name || '',
     street: user?.address?.street || '',
@@ -35,12 +43,211 @@ const Checkout = () => {
     phone: user?.phone || ''
   });
 
+  const [distance, setDistance] = useState('0');
+  const [customDeliveryCharge, setCustomDeliveryCharge] = useState('0');
+
+  const [deliverySettings, setDeliverySettings] = useState({
+    deliveryChargePerKm: 0,
+    freeDistanceLimit: 5,
+    maxDeliveryDistance: 20,
+    freeDeliveryThreshold: 500,
+    storeLatitude: 10.7870,
+    storeLongitude: 79.1378,
+    deliverySlabs: []
+  });
+
+  useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const response = await api.get('/api/settings/public');
+        if (response.data.success) {
+          setDeliverySettings(response.data.settings);
+        }
+      } catch (err) {
+        console.error('Failed to fetch delivery settings:', err);
+      }
+    };
+    fetchPublicSettings();
+  }, []);
+
+  const distValue = parseFloat(distance) || 0;
+  const isFreeDistance = distValue <= (deliverySettings.freeDistanceLimit || 0);
+  const isFreeAmount = cart.totalAmount >= (deliverySettings.freeDeliveryThreshold || 0);
+  const isActuallyFree = isFreeDistance || isFreeAmount;
+
+  useEffect(() => {
+    if (isActuallyFree) {
+      setCustomDeliveryCharge('0');
+    }
+  }, [isActuallyFree]);
+
+  const calculateDynamicSlabCharge = (dist) => {
+    const slabs = deliverySettings.deliverySlabs || [];
+    if (!slabs.length) return 0;
+    const slab = slabs.find(s => dist >= s.minDistance && dist <= s.maxDistance);
+    if (slab) return slab.charge;
+    const lastSlab = slabs[slabs.length - 1];
+    if (lastSlab && dist > lastSlab.maxDistance) return lastSlab.charge;
+    return 0;
+  };
+
+  const deliveryCharge = isActuallyFree ? 0 : (parseFloat(customDeliveryCharge) || 0);
+
   const handleAddressChange = (field, value) => {
     setShippingAddress(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleDistanceChange = (val) => {
+    if (val === '') { setDistance(''); return; }
+    const n = parseFloat(val);
+    if (!isNaN(n)) setDistance(val);
+  };
+
+  const handleChargeChange = (val) => {
+    if (val === '') { setCustomDeliveryCharge(''); return; }
+    const n = parseFloat(val);
+    if (!isNaN(n)) setCustomDeliveryCharge(val);
+  };
+
+  const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d * 1.3; // Add 30% buffer to approximate road distance
+  };
+
+  const fetchRoadDistance = async (userLat, userLng) => {
+    try {
+      setDistanceError('');
+      const shopLat = deliverySettings.storeLatitude || SHOP_LOCATION.lat;
+      const shopLng = deliverySettings.storeLongitude || SHOP_LOCATION.lng;
+
+      let finalDist = 0;
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${shopLng},${shopLat};${userLng},${userLat}?overview=false`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.code === 'Ok' && data.routes?.[0]) {
+          finalDist = data.routes[0].distance / 1000;
+        } else {
+          throw new Error('OSRM fail');
+        }
+      } catch (err) {
+        console.warn("OSRM failed, falling back to Haversine");
+        finalDist = calculateHaversineDistance(shopLat, shopLng, userLat, userLng);
+      }
+
+      setDistance(finalDist.toFixed(2));
+
+      const maxDist = deliverySettings.maxDeliveryDistance || 20;
+
+      if (finalDist > maxDist) {
+        setDistanceError(`Sorry, delivery is not available for locations beyond ${maxDist} KM.`);
+      }
+
+      setCustomDeliveryCharge(String(calculateDynamicSlabCharge(finalDist)));
+      setShippingLocation({ lat: userLat, lng: userLng });
+    } catch (err) {
+      console.error("Distance calculation failed:", err);
+      setDistanceError("Could not calculate distance automatically.");
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleGeocodeAddress = async () => {
+    const { street, city, state, zipCode } = shippingAddress;
+    const query = [street, city, state, zipCode].filter(Boolean).join(', ');
+    if (!query.trim()) return;
+
+    setIsLocating(true);
+    setDistanceError('');
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        await fetchRoadDistance(parseFloat(lat), parseFloat(lon));
+      } else {
+        setIsLocating(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLocating(false);
+    }
+  };
+
+  // Debounced Automatic Geocoding
+  useEffect(() => {
+    if (isGpsUpdate.current) {
+      isGpsUpdate.current = false;
+      return;
+    }
+
+    const { street, city } = shippingAddress;
+    if (!street || !city) return;
+
+    const timer = setTimeout(() => {
+      handleGeocodeAddress();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [shippingAddress.street, shippingAddress.city, shippingAddress.zipCode]);
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation not supported");
+      return;
+    }
+    setIsLocating(true);
+    setDistanceError('');
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 30000
+    };
+
+    const success = (pos) => {
+      const { latitude, longitude } = pos.coords;
+      setShippingLocation({ lat: latitude, lng: longitude });
+      setIsLocating(false);
+      setShowMap(true);
+    };
+
+    const error = (err) => {
+      console.warn(`Checkout Geolocation error (${err.code}): ${err.message}`);
+
+      if (options.enableHighAccuracy) {
+        // Retry without high accuracy
+        navigator.geolocation.getCurrentPosition(success, (err2) => {
+          let msg = "Could not retrieve location.";
+          if (err2.code === 1) msg = "Location access denied. Please enable location permissions.";
+          else if (err2.code === 2) msg = "Location information is unavailable.";
+          else if (err2.code === 3) msg = "Location request timed out.";
+
+          setDistanceError(msg);
+          setIsLocating(false);
+        }, { ...options, enableHighAccuracy: false, timeout: 5000 });
+      } else {
+        let msg = "Could not retrieve location.";
+        if (err.code === 1) msg = "Location access denied. Please enable location permissions.";
+        else if (err.code === 2) msg = "Location information is unavailable.";
+        else if (err.code === 3) msg = "Location request timed out.";
+        setDistanceError(msg);
+        setIsLocating(false);
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(success, error, options);
+  };
   const handlePlaceOrder = async () => {
-    // Basic client-side validation to match server requirements
     const required = ['name', 'street'];
     const missing = required.filter((k) => !String(shippingAddress[k] || '').trim());
     if (missing.length) {
@@ -48,7 +255,11 @@ const Checkout = () => {
       return;
     }
 
-    // Prepare minimal, clean items payload (only valid products with id)
+    if (distanceError) {
+      alert(distanceError);
+      return;
+    }
+
     const items = (cart.items || [])
       .filter((it) => it && (it.product?._id || it.product))
       .map((it) => ({
@@ -66,17 +277,22 @@ const Checkout = () => {
     try {
       const orderData = {
         items,
-        totalAmount: cart.totalAmount,
+        totalAmount: cart.totalAmount + deliveryCharge,
+        deliveryCharge,
+        freeDeliveryThreshold: deliverySettings.freeDeliveryThreshold,
         paymentMethod,
         shippingAddress: {
           ...shippingAddress,
           name: String(shippingAddress.name).trim(),
           street: String(shippingAddress.street).trim(),
+          latitude: shippingLocation?.lat,
+          longitude: shippingLocation?.lng
         },
+        distance: distValue
       };
 
       const response = await api.post('/api/orders', orderData);
-      
+
       if (response.data.success) {
         const ord = response.data.order;
         if (paymentMethod === 'razorpay') {
@@ -132,8 +348,14 @@ const Checkout = () => {
               }
             },
             modal: {
-              ondismiss: () => {
-                alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING. You can try again.'));
+              ondismiss: async () => {
+                try {
+                  await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
+                  alert(t('checkout.pay_cancelled_retry', 'Payment was cancelled. You can retry the payment from your Order History.'));
+                } catch (err) {
+                  console.error('Failed to notify cancellation:', err);
+                  alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING.'));
+                }
                 navigate(`/orders/${ord._id}`);
               },
             },
@@ -149,9 +371,16 @@ const Checkout = () => {
           }
 
           const rzp1 = new Razorpay(options);
-          rzp1.on('payment.failed', (resp) => {
+          rzp1.on('payment.failed', async (resp) => {
             console.error('Razorpay payment failed:', resp);
-            alert(resp?.error?.description || t('checkout.pay_failed', 'Payment failed. Please try again.'));
+            try {
+              await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
+              alert(resp?.error?.description || t('checkout.pay_failed_retry', 'Payment failed. You can retry from your Order History.'));
+            } catch (err) {
+              console.error('Failed to notify cancellation on failure:', err);
+              alert(resp?.error?.description || t('checkout.pay_failed', 'Payment failed. Please try again.'));
+            }
+            navigate(`/orders/${ord._id}`);
           });
           rzp1.open();
         } else {
@@ -230,6 +459,82 @@ const Checkout = () => {
               </div>
             </div>
 
+            <div className="delivery-section" style={{ marginTop: '20px', padding: '20px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <h3 style={{ marginBottom: '15px' }}>📍 {t('checkout.delivery_location', 'Choose Delivery Location')}</h3>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isLocating}
+                  style={{
+                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
+                    backgroundColor: '#2c5530', color: 'white', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none'
+                  }}
+                >
+                  {isLocating ? '⌛' : <img src="/gps-target-icon.png" alt="" style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleGeocodeAddress}
+                  disabled={isLocating}
+                  style={{
+                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
+                    backgroundColor: '#f1f1f1', color: '#333', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid #ddd'
+                  }}
+                >
+                  🔍 {t('checkout.locate_address', 'Locate from Address')}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setShippingAddress(prev => ({
+                      ...prev,
+                      street: '',
+                      city: '',
+                      state: '',
+                      zipCode: ''
+                    }));
+                    setDistance('0');
+                    setCustomDeliveryCharge('0');
+                    setShippingLocation(null);
+                    setDistanceError('');
+                  }}
+                  style={{
+                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
+                    backgroundColor: '#fee2e2', color: '#b91c1c', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid #fecaca'
+                  }}
+                >
+                  ❌ {t('checkout.reset', 'Reset Address')}
+                </button>
+              </div>
+
+
+              {distanceError && <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '10px' }}>{distanceError}</p>}
+
+              <div style={{ marginTop: '10px', padding: '10px', borderRadius: '6px', background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: '500', color: '#3730a3' }}>
+                  {t('checkout.distance', 'Road Distance:')} <strong>{isLocating ? 'Calculating...' : `${distance} KM`}</strong>
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: '500', color: '#1e40af' }}>
+                  {t('checkout.applied_charge', 'Delivery Charge:')} <strong>{isLocating ? '...' : `₹${deliveryCharge}`}</strong>
+                </p>
+              </div>
+
+
+
+              <small style={{ color: '#6b7280', display: 'block', marginTop: '10px' }}>
+                {isActuallyFree ? t('checkout.free_delivery', 'Free delivery applied! ✅') : t('checkout.slab_applied', 'Automatic slab rate applied based on road distance.')}
+              </small>
+            </div>
+
             <div className="payment-section">
               <h3>{t('checkout.payment', 'Payment Method')}</h3>
               <div className="payment-options">
@@ -270,19 +575,78 @@ const Checkout = () => {
                 );
               })}
             </div>
-            <div className="order-total">
-              <strong>{t('checkout.total', 'Total:')} ₹{cart.totalAmount.toFixed(2)}</strong>
+            <div className="order-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>{t('checkout.subtotal', 'Subtotal:')}</span>
+              <span>₹{cart.totalAmount.toFixed(2)}</span>
+            </div>
+            <div className="order-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>{t('checkout.delivery_fee', 'Delivery Fee:')}</span>
+              <span>{deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : t('checkout.free', 'Free')}</span>
+            </div>
+            <div className="order-total" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+              <strong>{t('checkout.total', 'Total:')}</strong>
+              <strong>₹{(cart.totalAmount + deliveryCharge).toFixed(2)}</strong>
             </div>
             <button
               onClick={handlePlaceOrder}
               disabled={loading}
               className="btn btn-primary place-order-btn"
+              style={{ width: '100%', marginTop: '20px' }}
             >
               {loading ? t('checkout.placing', 'Placing Order...') : t('checkout.place_order', 'Place Order')}
             </button>
           </div>
         </div>
       </div>
+
+      <MapModal
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        onConfirm={async (loc) => {
+          setShowMap(false);
+          isGpsUpdate.current = true;
+
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.address) {
+                const addr = data.address;
+                let streetInfo = [
+                  addr.house_number,
+                  addr.house_name,
+                  addr.building,
+                  addr.apartment,
+                  addr.road,
+                  addr.residential,
+                  addr.hamlet,
+                  addr.neighbourhood,
+                  addr.suburb
+                ].filter(Boolean).join(', ');
+
+                if (!streetInfo && data.display_name) {
+                  streetInfo = data.display_name.split(',')[0].trim();
+                }
+
+                setShippingAddress((prev) => ({
+                  ...prev,
+                  street: streetInfo,
+                  city: addr.city || addr.town || addr.village || addr.municipality || '',
+                  state: addr.state || '',
+                  zipCode: addr.postcode || '',
+                  country: addr.country || prev.country
+                }));
+              }
+            }
+          } catch (error) {
+            console.error("Reverse geocoding failed:", error);
+          }
+
+          fetchRoadDistance(loc.lat, loc.lng);
+        }}
+        initialLocation={shippingLocation || { lat: deliverySettings.storeLatitude, lng: deliverySettings.storeLongitude }}
+        shopLocation={{ lat: deliverySettings.storeLatitude, lng: deliverySettings.storeLongitude }}
+      />
     </div>
   );
 };

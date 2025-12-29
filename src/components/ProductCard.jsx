@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -7,13 +6,12 @@ import api from '../api/axios';
 import './ProductCard.css';
 
 const ProductCard = ({ product, onDelete }) => {
-  const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isAuthenticated, isAdmin } = useAuth();
   const { lang } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState('1'); // Use string to allow empty state while typing
   const [imageError, setImageError] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState(() => {
     const active = Array.isArray(product?.variants) ? product.variants.filter(v => v && v.isActive !== false) : [];
@@ -30,6 +28,11 @@ const ProductCard = ({ product, onDelete }) => {
   })();
 
   const unitPrice = selectedVariant ? Number(selectedVariant.price) : Number(product.price);
+  const unitMrp = selectedVariant ? Number(selectedVariant.mrp) : Number(product.mrp);
+  const discountPercentage = (unitMrp > unitPrice)
+    ? Math.round(((unitMrp - unitPrice) / unitMrp) * 100)
+    : 0;
+
   const availableStock = (() => {
     if (selectedVariant && selectedVariant.stock !== null && selectedVariant.stock !== undefined) {
       return Number(selectedVariant.stock);
@@ -71,14 +74,14 @@ const ProductCard = ({ product, onDelete }) => {
 
     setIsAdding(true);
     try {
-      const result = await addToCart(product._id, quantity, selectedVariant ? selectedVariantId : null);
+      const qtyToSend = parseInt(quantity) || 1;
+      const result = await addToCart(product._id, qtyToSend, selectedVariant ? selectedVariantId : null);
       if (result.success) {
-        // Show success message and redirect to orders page
-        console.log('Added to cart successfully');
-        // Small delay to show the success state before redirecting
+        // Show success message briefly but STAY on the page
         setTimeout(() => {
-          navigate('/orders');
-        }, 500);
+          setIsAdding(false);
+          setQuantity('1'); // Reset quantity after success
+        }, 1500);
       } else {
         alert('Failed to add item to cart');
         setIsAdding(false);
@@ -104,7 +107,7 @@ const ProductCard = ({ product, onDelete }) => {
     setIsDeleting(true);
     try {
       const response = await api.delete(`/api/products/${product._id}`);
-      
+
       if (response.data.success) {
         alert('Product deleted successfully');
         if (onDelete) {
@@ -126,8 +129,11 @@ const ProductCard = ({ product, onDelete }) => {
 
   return (
     <div className="product-card">
+      {discountPercentage > 0 && (
+        <div className="discount-badge">{discountPercentage}% OFF</div>
+      )}
       {isAdmin && (
-        <button 
+        <button
           className="delete-product-btn"
           onClick={handleDeleteProduct}
           disabled={isDeleting}
@@ -138,8 +144,8 @@ const ProductCard = ({ product, onDelete }) => {
       )}
       <div className="product-image">
         {!imageError && product.image ? (
-          <img 
-            src={product.image} 
+          <img
+            src={product.image}
             alt={displayName}
             onError={() => setImageError(true)}
           />
@@ -165,11 +171,11 @@ const ProductCard = ({ product, onDelete }) => {
           </div>
         )}
       </div>
-      
+
       <div className="product-info">
         <h3 className="product-name">{displayName}</h3>
         <p className="product-description">{product.description}</p>
-        
+
         <div className="product-details">
           <span className="product-category">{product.category}</span>
           <span className="product-unit">per {product.unit}</span>
@@ -181,7 +187,7 @@ const ProductCard = ({ product, onDelete }) => {
               value={selectedVariantId}
               onChange={(e) => {
                 setSelectedVariantId(e.target.value);
-                setQuantity(1);
+                setQuantity('1');
               }}
               style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #e0e0e0' }}
             >
@@ -193,33 +199,59 @@ const ProductCard = ({ product, onDelete }) => {
             </select>
           </div>
         )}
-        
+
         <div className="product-price">
           <span className="price">₹{unitPrice}</span>
+          {discountPercentage > 0 && <span className="mrp-strikethrough">₹{unitMrp}</span>}
           {availableStock > 0 && (
             <span className="stock-info">{availableStock} available</span>
           )}
         </div>
-        
+
         {availableStock > 0 ? (
           <div className="product-actions">
             <div className="quantity-selector">
-              <button 
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              <button
+                onClick={() => setQuantity(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
                 className="quantity-btn"
               >
                 -
               </button>
-              <span className="quantity">{quantity}</span>
-              <button 
-                onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+              <input
+                type="number"
+                className="quantity-input"
+                value={quantity}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setQuantity('');
+                  } else {
+                    const parsed = parseInt(val);
+                    if (!isNaN(parsed)) {
+                      if (parsed > availableStock) {
+                        setQuantity(String(availableStock));
+                      } else {
+                        setQuantity(String(parsed));
+                      }
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (quantity === '' || parseInt(quantity) < 1) {
+                    setQuantity('1');
+                  }
+                }}
+              />
+              <button
+                onClick={() => setQuantity(prev => String(Math.min(availableStock, (parseInt(prev) || 0) + 1)))}
                 className="quantity-btn"
               >
                 +
               </button>
             </div>
-            
-            <button 
+
+            <button
               onClick={handleAddToCart}
               disabled={isAdding || !isAuthenticated}
               className={`add-to-cart-btn ${isAdding ? 'adding' : ''}`}

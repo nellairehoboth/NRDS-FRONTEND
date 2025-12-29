@@ -20,7 +20,7 @@ const Products = () => {
   });
 
   const categories = [
-    'fruits', 'vegetables', 'dairy', 'meat', 'bakery', 
+    'fruits', 'vegetables', 'dairy', 'meat', 'bakery',
     'beverages', 'snacks', 'frozen', 'pantry', 'household'
   ];
 
@@ -39,7 +39,7 @@ const Products = () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value);
       });
@@ -56,7 +56,7 @@ const Products = () => {
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    
+
     // Update URL params
     const newSearchParams = new URLSearchParams();
     Object.entries(newFilters).forEach(([k, v]) => {

@@ -24,46 +24,46 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <I18nProvider>
-        <Router>
-          <div className="App">
-            <Navbar />
-            <main className="main-content">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/auth/success" element={<AuthSuccess />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/AboutUs" element={<AboutUs />} />
-                <Route path="/cart" element={
-                  <ProtectedRoute>
-                    <Cart />
-                  </ProtectedRoute>
-                } />
-                <Route path="/checkout" element={
-                  <ProtectedRoute>
-                    <Checkout />
-                  </ProtectedRoute>
-                } />
-                <Route path="/orders" element={
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                } />
-                <Route path="/orders/:id" element={
-                  <ProtectedRoute>
-                    <OrderDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin" element={
-                  <ProtectedRoute adminOnly={true}>
-                    <AdminPanel />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </main>
-          </div>
-        </Router>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <div className="App">
+              <Navbar />
+              <main className="main-content">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/auth/success" element={<AuthSuccess />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/AboutUs" element={<AboutUs />} />
+                  <Route path="/cart" element={
+                    <ProtectedRoute>
+                      <Cart />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/checkout" element={
+                    <ProtectedRoute>
+                      <Checkout />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders" element={
+                    <ProtectedRoute>
+                      <Orders />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders/:id" element={
+                    <ProtectedRoute>
+                      <OrderDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin" element={
+                    <ProtectedRoute adminOnly={true}>
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </main>
+            </div>
+          </Router>
         </I18nProvider>
       </CartProvider>
     </AuthProvider>

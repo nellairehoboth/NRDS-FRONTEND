@@ -1,0 +1,334 @@
+/* MapModal.css */
+
+.map-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+    transition: all 0.3s ease;
+    animation: fadeIn 0.3s ease;
+}
+
+.map-modal-overlay.maximized {
+    padding: 0;
+    background-color: white;
+    backdrop-filter: none;
+}
+
+.map-modal-card {
+    position: relative;
+    background-color: #f8f9fa;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 500px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    transform: translateY(0);
+    transition: all 0.3s ease;
+    animation: slideUp 0.3s ease-out;
+}
+
+.map-modal-card.maximized {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+}
+
+/* Close & Toggle Button Floating */
+.map-close-btn-floating,
+.map-toggle-btn-floating {
+    position: absolute;
+    top: 15px;
+    background-color: white;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #333;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1002;
+    transition: all 0.2s;
+}
+
+.map-close-btn-floating {
+    right: 15px;
+}
+
+.map-close-btn-floating:hover,
+.map-toggle-btn-floating:hover {
+    background-color: #f3f4f6;
+    transform: scale(1.05);
+}
+
+/* Map Area - Full Coverage */
+.map-container-wrapper {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 0;
+}
+
+/* Floating Search Bar */
+.map-floating-search {
+    position: absolute;
+    top: 14px;
+    left: 20px;
+    right: 120px;
+    /* Space for close + toggle btns */
+    z-index: 1001;
+}
+
+.map-search-input-floating {
+    width: 100%;
+    height: 40px;
+    /* Match button height */
+    padding: 0 16px 0 40px;
+    /* Space for icon */
+    border-radius: 25px;
+    border: none;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    outline: none;
+}
+
+.search-icon-overlay {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    height: 20px;
+    /* Fix height for vertical centering */
+    display: flex;
+    align-items: center;
+}
+
+/* Suggestions Dropdown */
+.map-search-suggestions {
+    position: absolute;
+    top: 50px;
+    /* Below input */
+    left: 0;
+    right: 0;
+    background: white;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1002;
+    overflow: hidden;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.suggestion-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    transition: background-color 0.2s;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background-color: #f3f4f6;
+}
+
+.suggestion-item strong {
+    font-size: 14px;
+    color: #111;
+}
+
+.suggestion-item small {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Floating Current Location Button */
+.map-floating-location-btn {
+    position: absolute;
+    bottom: 220px;
+    /* Positioned above the bottom sheet */
+    right: 20px;
+    /* Right aligned */
+    background-color: white;
+    border: none;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+    color: #ff5722;
+}
+
+.map-floating-location-btn:hover {
+    transform: scale(1.1);
+}
+
+.location-btn-text-floating {
+    position: absolute;
+    right: 55px;
+    /* To the left of the button */
+    background: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    color: #333;
+    pointer-events: none;
+}
+
+
+/* Bottom Sheet Card */
+.map-bottom-sheet {
+    background-color: white;
+    padding: 24px;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1003;
+    transition: transform 0.3s ease;
+}
+
+.bottom-sheet-header {
+    margin-bottom: 16px;
+}
+
+.bottom-sheet-label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.address-preview-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.location-pin-icon {
+    font-size: 24px;
+    color: #ff5722;
+    margin-top: 2px;
+}
+
+.address-details h4 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    color: #111;
+    font-weight: 700;
+}
+
+.address-details p {
+    margin: 0;
+    font-size: 13px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.map-confirm-btn-floating {
+    width: 100%;
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    background-color: #ff5722;
+    /* Specific Orange from screenshot */
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 87, 34, 0.3);
+    transition: background-color 0.2s;
+}
+
+.map-confirm-btn-floating:hover {
+    background-color: #f4511e;
+}
+
+.map-confirm-btn-floating:disabled {
+    background-color: #ffab91;
+    cursor: not-allowed;
+}
+
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Tweaks */
+@media (max-width: 600px) {
+    .map-modal-card {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        border-radius: 0;
+    }
+
+    .map-bottom-sheet {
+        padding-bottom: 30px;
+        /* Safe area */
+    }
+}
