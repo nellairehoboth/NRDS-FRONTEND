@@ -79,9 +79,14 @@ const ProductCard = ({ product, onDelete }) => {
       if (result.success) {
         // Show success message briefly but STAY on the page
         setTimeout(() => {
+<<<<<<< HEAD
           setIsAdding(false);
           setQuantity('1'); // Reset quantity after success
         }, 1500);
+=======
+          navigate('/cart');
+        }, 500);
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
       } else {
         alert('Failed to add item to cart');
         setIsAdding(false);
@@ -212,13 +217,18 @@ const ProductCard = ({ product, onDelete }) => {
           <div className="product-actions">
             <div className="quantity-selector">
               <button
+<<<<<<< HEAD
                 onClick={() => setQuantity(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
+=======
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
                 className="quantity-btn"
               >
                 -
               </button>
               <input
                 type="number"
+<<<<<<< HEAD
                 className="quantity-input"
                 value={quantity}
                 onFocus={(e) => e.target.select()}
@@ -245,6 +255,19 @@ const ProductCard = ({ product, onDelete }) => {
               />
               <button
                 onClick={() => setQuantity(prev => String(Math.min(availableStock, (parseInt(prev) || 0) + 1)))}
+=======
+                min="1"
+                max={availableStock}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  setQuantity(Math.max(1, Math.min(availableStock, val)));
+                }}
+                className="quantity-input"
+              />
+              <button
+                onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
                 className="quantity-btn"
               >
                 +

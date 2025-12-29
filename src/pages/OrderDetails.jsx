@@ -140,6 +140,7 @@ const OrderDetails = () => {
   if (error) return <div className="container"><h2>{error}</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
   if (!order) return <div className="container"><h2>Order not found</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
 
+<<<<<<< HEAD
   const isRestricted = ['PAYMENT_PENDING', 'CANCELLED', 'cancelled'].includes(order.status);
 
   if (isRestricted) {
@@ -161,6 +162,34 @@ const OrderDetails = () => {
               <Link to="/orders" className="btn" style={{ background: '#eee', color: '#333' }}>Back to My Orders</Link>
             </div>
           </div>
+=======
+  // Block invoice access for pending or cancelled orders
+  const blockedStatuses = ['PAYMENT_PENDING', 'CANCELLED', 'pending', 'cancelled'];
+  const isBlocked = blockedStatuses.includes(order.status) || order.paymentStatus === 'failed';
+
+  if (isBlocked) {
+    return (
+      <div className="container" style={{ marginTop: '40px', textAlign: 'center' }}>
+        <h2>Invoice Not Available</h2>
+        <p style={{ color: '#6b7280', marginTop: '16px', marginBottom: '24px' }}>
+          {order.status === 'CANCELLED'
+            ? 'This order has been cancelled. No invoice is available.'
+            : order.paymentStatus === 'failed'
+              ? 'Payment failed for this order. Please try again or contact support.'
+              : 'Payment is pending for this order. Complete the payment to view your invoice.'}
+        </p>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          {order.status === 'PAYMENT_PENDING' && order.paymentMethod === 'razorpay' && (
+            <button
+              className="btn btn-primary"
+              onClick={() => window.location.href = '/checkout'}
+            >
+              Retry Payment
+            </button>
+          )}
+          <Link to="/orders" className="btn">Back to Orders</Link>
+          <Link to="/" className="btn">Continue Shopping</Link>
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
         </div>
       </div>
     );
@@ -173,8 +202,8 @@ const OrderDetails = () => {
 
   // Compute line-level and totals
   const items = (order.items || []).map((item) => {
-    const rate = Number(item.product?.tax?.gstRate || 0);
-    const inclusive = Boolean(item.product?.tax?.inclusive);
+    const rate = Number((item.tax?.gstRate ?? item.product?.tax?.gstRate) || 0);
+    const inclusive = Boolean(item.tax?.inclusive ?? item.product?.tax?.inclusive ?? false);
     const subtotal = Number(item.subtotal ?? (item.price * item.quantity) ?? 0);
     const taxFactor = rate / 100;
     let taxable = subtotal;
@@ -208,8 +237,12 @@ const OrderDetails = () => {
     { qty: 0, taxable: 0, tax: 0, cgst: 0, sgst: 0, igst: 0, subtotal: 0 }
   );
 
+<<<<<<< HEAD
   const grandTotal = order.totalAmount;
   const deliveryCharge = order.deliveryCharge || 0;
+=======
+  const grandTotal = totals.taxable + totals.tax;
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
 
   return (
     <div className="order-details-page">
@@ -347,11 +380,11 @@ const OrderDetails = () => {
               <div className="totals-row"><span>Taxable Value</span><strong>{currency(totals.taxable)}</strong></div>
               {isIntraState ? (
                 <>
-                  <div className="totals-row"><span>CGST</span><strong>{currency(totals.cgst)}</strong></div>
-                  <div className="totals-row"><span>SGST</span><strong>{currency(totals.sgst)}</strong></div>
+                  <div className="totals-row"><span>CGST ({items[0]?.rate / 2 || 0}%)</span><strong>{currency(totals.cgst)}</strong></div>
+                  <div className="totals-row"><span>SGST ({items[0]?.rate / 2 || 0}%)</span><strong>{currency(totals.sgst)}</strong></div>
                 </>
               ) : (
-                <div className="totals-row"><span>IGST</span><strong>{currency(totals.igst)}</strong></div>
+                <div className="totals-row"><span>IGST ({items[0]?.rate || 0}%)</span><strong>{currency(totals.igst)}</strong></div>
               )}
               <div className="totals-row"><span>Tax Total</span><strong>{currency(totals.tax)}</strong></div>
               <div className="totals-row"><span>Delivery Fee</span><strong>{currency(deliveryCharge)}</strong></div>
@@ -412,6 +445,17 @@ const OrderDetails = () => {
           <div className="hr" />
           <div className="mono tot-line"><span>TOTAL Items-----&gt;</span><span>{totals.qty} {Number(grandTotal).toFixed(0)}</span></div>
           <div className="mono tot-line"><span>No Of Items----&gt;</span><span>{items.length}</span></div>
+          <div className="hr" />
+          <div className="mono tot-line"><span>Taxable Value</span><span>{Number(totals.taxable).toFixed(2)}</span></div>
+          {isIntraState ? (
+            <>
+              <div className="mono tot-line"><span>CGST ({items[0]?.rate / 2 || 0}%)</span><span>{Number(totals.cgst).toFixed(2)}</span></div>
+              <div className="mono tot-line"><span>SGST ({items[0]?.rate / 2 || 0}%)</span><span>{Number(totals.sgst).toFixed(2)}</span></div>
+            </>
+          ) : (
+            <div className="mono tot-line"><span>IGST ({items[0]?.rate || 0}%)</span><span>{Number(totals.igst).toFixed(2)}</span></div>
+          )}
+          <div className="mono tot-line"><span>Tax Total</span><span>{Number(totals.tax).toFixed(2)}</span></div>
           <div className="hr" />
           <div className="mono tot-line"><span className="tot-title">TOTAL AMT :</span><span className="tot-title">{Number(grandTotal).toFixed(2)}</span></div>
           <div className="hr" />

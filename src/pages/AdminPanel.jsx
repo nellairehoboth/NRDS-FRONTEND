@@ -31,12 +31,47 @@ const AdminPanel = () => {
   });
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
+<<<<<<< HEAD
     name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', variants: [],
+=======
+    name: '',
+    brand: '',
+    barcode: '',
+    description: '',
+    price: '',
+    mrp: '',
+    gstRate: '',
+    taxInclusive: false,
+    category: 'fruits',
+    stock: '',
+    unit: 'kg',
+    expiryDate: '',
+    image: '',
+    variants: [],
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
   });
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
+<<<<<<< HEAD
     name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', isActive: true, variants: [],
+=======
+    name: '',
+    brand: '',
+    barcode: '',
+    description: '',
+    price: '',
+    mrp: '',
+    gstRate: '',
+    taxInclusive: false,
+    category: 'fruits',
+    stock: '',
+    unit: 'kg',
+    expiryDate: '',
+    image: '',
+    isActive: true,
+    variants: [],
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
   });
   const [settings, setSettings] = useState({
     deliveryChargePerKm: '0',
@@ -356,17 +391,552 @@ const AdminPanel = () => {
         </div>
 
         <div className="admin-tabs">
+<<<<<<< HEAD
           <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>Products</button>
           <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>Orders</button>
           <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Settings</button>
+=======
+          <button
+            className={activeTab === 'products' ? 'active' : ''}
+            onClick={() => setActiveTab('products')}
+          >
+            {t('admin.tabs.products', 'Products')}
+          </button>
+          <button
+            className={activeTab === 'orders' ? 'active' : ''}
+            onClick={() => setActiveTab('orders')}
+          >
+            {t('admin.tabs.orders', 'Orders')}
+          </button>
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
         </div>
 
         {activeTab === 'products' && (
           <div className="products-management">
             <div className="section-header">
+<<<<<<< HEAD
               <h2>Products</h2>
               <button onClick={() => setShowAddProduct(true)} className="btn btn-primary">Add Product</button>
             </div>
+=======
+              <h2>{t('admin.products_mgmt', 'Products Management')}</h2>
+              {!editingProduct && (
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="btn btn-primary"
+                >
+                  {t('admin.add_product', 'Add Product')}
+                </button>
+              )}
+            </div>
+
+            {!editingProduct && (
+              <div className="admin-product-filters">
+                <div className="admin-filter-row">
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder={t('admin.search_ph', 'Search product name or category...')}
+                    className="admin-filter-input"
+                  />
+                  <select
+                    value={variantLabelFilter}
+                    onChange={(e) => setVariantLabelFilter(e.target.value)}
+                    className="admin-filter-select"
+                  >
+                    {variantLabelOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt === 'all' ? t('admin.all_variants', 'All Variants') : opt}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={productCategoryFilter}
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                    className="admin-filter-select"
+                  >
+                    <option value="all">{t('admin.all_categories', 'All Categories')}</option>
+                    <option value="fruits">Fruits</option>
+                    <option value="vegetables">Vegetables</option>
+                    <option value="dairy">Dairy</option>
+                    <option value="meat">Meat</option>
+                    <option value="bakery">Bakery</option>
+                    <option value="beverages">Beverages</option>
+                    <option value="snacks">Snacks</option>
+                    <option value="frozen">Frozen</option>
+                    <option value="pantry">Pantry</option>
+                    <option value="household">Household</option>
+                  </select>
+                  <select
+                    value={productStockFilter}
+                    onChange={(e) => setProductStockFilter(e.target.value)}
+                    className="admin-filter-select"
+                  >
+                    <option value="all">{t('admin.all_stock', 'All Stock')}</option>
+                    <option value="low">{t('admin.low_stock', 'Low Stock (≤ 5)')}</option>
+                    <option value="out">{t('admin.out_of_stock', 'Out of Stock')}</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setProductSearch('');
+                      setVariantLabelFilter('all');
+                      setProductCategoryFilter('all');
+                      setProductStockFilter('all');
+                    }}
+                  >
+                    {t('admin.clear', 'Clear')}
+                  </button>
+                </div>
+                <div className="admin-filter-meta">
+                  Showing <strong>{filteredProducts.length}</strong> of <strong>{products.length}</strong>
+                </div>
+              </div>
+            )}
+
+            {editingProduct && (
+              <div className="add-product-form" style={{ marginTop: 12 }}>
+                <h3>Edit Product</h3>
+                <form onSubmit={handleUpdateProduct}>
+                  <div className="form-grid">
+                    <input
+                      type="text"
+                      placeholder="Product Name"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Brand"
+                      value={editForm.brand}
+                      onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Barcode"
+                      value={editForm.barcode}
+                      onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
+                    />
+                    {!hasVariants(editForm.variants) && (
+                      <>
+                        <input
+                          type="number"
+                          placeholder="Price"
+                          value={editForm.price}
+                          onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                          required
+                        />
+                        <input
+                          type="number"
+                          placeholder="MRP"
+                          value={editForm.mrp}
+                          onChange={(e) => setEditForm({ ...editForm, mrp: e.target.value })}
+                        />
+                      </>
+                    )}
+                    <input
+                      type="number"
+                      placeholder="GST %"
+                      value={editForm.gstRate}
+                      onChange={(e) => setEditForm({ ...editForm, gstRate: e.target.value })}
+                    />
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    >
+                      <option value="fruits">Fruits</option>
+                      <option value="vegetables">Vegetables</option>
+                      <option value="dairy">Dairy</option>
+                      <option value="meat">Meat</option>
+                      <option value="bakery">Bakery</option>
+                      <option value="beverages">Beverages</option>
+                      <option value="snacks">Snacks</option>
+                      <option value="frozen">Frozen</option>
+                      <option value="pantry">Pantry</option>
+                      <option value="household">Household</option>
+                    </select>
+                    {!hasVariants(editForm.variants) && (
+                      <input
+                        type="number"
+                        placeholder="Stock"
+                        value={editForm.stock}
+                        onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                        required
+                      />
+                    )}
+                    <select
+                      value={editForm.unit}
+                      onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
+                    >
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="piece">piece</option>
+                      <option value="liter">liter</option>
+                      <option value="ml">ml</option>
+                      <option value="pack">pack</option>
+                      <option value="dozen">dozen</option>
+                    </select>
+                    <input
+                      type="date"
+                      placeholder="Expiry Date"
+                      value={editForm.expiryDate}
+                      onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Image URL"
+                      value={editForm.image}
+                      onChange={(e) => setEditForm({ ...editForm, image: e.target.value })}
+                    />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.isActive}
+                        onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                      />
+                      Active
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.taxInclusive}
+                        onChange={(e) => setEditForm({ ...editForm, taxInclusive: e.target.checked })}
+                      />
+                      Tax Inclusive
+                    </label>
+                  </div>
+
+                  <div className="variants-section">
+                    <div className="variants-header">
+                      <strong>Variants (Weight-wise pricing)</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          const next = [...(editForm.variants || [])];
+                          next.push({ label: '', price: '', mrp: '', stock: '', isActive: true });
+                          setEditForm({ ...editForm, variants: next });
+                        }}
+                      >
+                        + Add Variant
+                      </button>
+                    </div>
+
+                    {(editForm.variants || []).length === 0 ? (
+                      <div className="variants-hint">No variants. Uses base price.</div>
+                    ) : (
+                      <div className="variants-list">
+                        {(editForm.variants || []).map((v, idx) => (
+                          <div key={idx} className="variant-row">
+                            <input
+                              type="text"
+                              placeholder="Label (e.g., 250g)"
+                              value={v.label}
+                              onChange={(e) => {
+                                const next = [...(editForm.variants || [])];
+                                next[idx] = { ...next[idx], label: e.target.value };
+                                setEditForm({ ...editForm, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Price"
+                              value={v.price}
+                              onChange={(e) => {
+                                const next = [...(editForm.variants || [])];
+                                next[idx] = { ...next[idx], price: e.target.value };
+                                setEditForm({ ...editForm, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="MRP"
+                              value={v.mrp}
+                              onChange={(e) => {
+                                const next = [...(editForm.variants || [])];
+                                next[idx] = { ...next[idx], mrp: e.target.value };
+                                setEditForm({ ...editForm, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Stock"
+                              value={v.stock}
+                              onChange={(e) => {
+                                const next = [...(editForm.variants || [])];
+                                next[idx] = { ...next[idx], stock: e.target.value };
+                                setEditForm({ ...editForm, variants: next });
+                              }}
+                            />
+                            <label className="variant-active">
+                              <input
+                                type="checkbox"
+                                checked={v.isActive !== false}
+                                onChange={(e) => {
+                                  const next = [...(editForm.variants || [])];
+                                  next[idx] = { ...next[idx], isActive: e.target.checked };
+                                  setEditForm({ ...editForm, variants: next });
+                                }}
+                              />
+                              Active
+                            </label>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => {
+                                const next = [...(editForm.variants || [])];
+                                next.splice(idx, 1);
+                                setEditForm({ ...editForm, variants: next });
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <textarea
+                    placeholder="Description"
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    required
+                  />
+                  <div className="form-actions">
+                    <button type="submit" className="btn btn-primary" disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save Changes'}</button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct(null)}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {showAddProduct && (
+              <div className="add-product-form">
+                <h3>Add New Product</h3>
+                <form onSubmit={handleAddProduct}>
+                  <div className="form-grid">
+                    <input
+                      type="text"
+                      placeholder="Product Name"
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Brand"
+                      value={newProduct.brand}
+                      onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Barcode"
+                      value={newProduct.barcode}
+                      onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
+                    />
+                    {!hasVariants(newProduct.variants) && (
+                      <>
+                        <input
+                          type="number"
+                          placeholder="Price"
+                          value={newProduct.price}
+                          onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                          required
+                        />
+                        <input
+                          type="number"
+                          placeholder="MRP"
+                          value={newProduct.mrp}
+                          onChange={(e) => setNewProduct({ ...newProduct, mrp: e.target.value })}
+                        />
+                      </>
+                    )}
+                    <input
+                      type="number"
+                      placeholder="GST %"
+                      value={newProduct.gstRate}
+                      onChange={(e) => setNewProduct({ ...newProduct, gstRate: e.target.value })}
+                    />
+                    <select
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                    >
+                      <option value="fruits">Fruits</option>
+                      <option value="vegetables">Vegetables</option>
+                      <option value="dairy">Dairy</option>
+                      <option value="meat">Meat</option>
+                      <option value="bakery">Bakery</option>
+                      <option value="beverages">Beverages</option>
+                      <option value="snacks">Snacks</option>
+                      <option value="frozen">Frozen</option>
+                      <option value="pantry">Pantry</option>
+                      <option value="household">Household</option>
+                    </select>
+                    {!hasVariants(newProduct.variants) && (
+                      <input
+                        type="number"
+                        placeholder="Stock"
+                        value={newProduct.stock}
+                        onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                        required
+                      />
+                    )}
+                    <select
+                      value={newProduct.unit}
+                      onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                    >
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="piece">piece</option>
+                      <option value="liter">liter</option>
+                      <option value="ml">ml</option>
+                      <option value="pack">pack</option>
+                      <option value="dozen">dozen</option>
+                    </select>
+                    <input
+                      type="date"
+                      placeholder="Expiry Date"
+                      value={newProduct.expiryDate}
+                      onChange={(e) => setNewProduct({ ...newProduct, expiryDate: e.target.value })}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Image URL"
+                      value={newProduct.image}
+                      onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
+                    />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!newProduct.taxInclusive}
+                        onChange={(e) => setNewProduct({ ...newProduct, taxInclusive: e.target.checked })}
+                      />
+                      Tax Inclusive
+                    </label>
+                  </div>
+
+                  <div className="variants-section">
+                    <div className="variants-header">
+                      <strong>Variants (Weight-wise pricing)</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          const next = [...(newProduct.variants || [])];
+                          next.push({ label: '', price: '', mrp: '', stock: '', isActive: true });
+                          setNewProduct({ ...newProduct, variants: next });
+                        }}
+                      >
+                        + Add Variant
+                      </button>
+                    </div>
+
+                    {(newProduct.variants || []).length === 0 ? (
+                      <div className="variants-hint">No variants. Uses base price.</div>
+                    ) : (
+                      <div className="variants-list">
+                        {(newProduct.variants || []).map((v, idx) => (
+                          <div key={idx} className="variant-row">
+                            <input
+                              type="text"
+                              placeholder="Label (e.g., 250g)"
+                              value={v.label}
+                              onChange={(e) => {
+                                const next = [...(newProduct.variants || [])];
+                                next[idx] = { ...next[idx], label: e.target.value };
+                                setNewProduct({ ...newProduct, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Price"
+                              value={v.price}
+                              onChange={(e) => {
+                                const next = [...(newProduct.variants || [])];
+                                next[idx] = { ...next[idx], price: e.target.value };
+                                setNewProduct({ ...newProduct, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="MRP"
+                              value={v.mrp}
+                              onChange={(e) => {
+                                const next = [...(newProduct.variants || [])];
+                                next[idx] = { ...next[idx], mrp: e.target.value };
+                                setNewProduct({ ...newProduct, variants: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Stock"
+                              value={v.stock}
+                              onChange={(e) => {
+                                const next = [...(newProduct.variants || [])];
+                                next[idx] = { ...next[idx], stock: e.target.value };
+                                setNewProduct({ ...newProduct, variants: next });
+                              }}
+                            />
+                            <label className="variant-active">
+                              <input
+                                type="checkbox"
+                                checked={v.isActive !== false}
+                                onChange={(e) => {
+                                  const next = [...(newProduct.variants || [])];
+                                  next[idx] = { ...next[idx], isActive: e.target.checked };
+                                  setNewProduct({ ...newProduct, variants: next });
+                                }}
+                              />
+                              Active
+                            </label>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => {
+                                const next = [...(newProduct.variants || [])];
+                                next.splice(idx, 1);
+                                setNewProduct({ ...newProduct, variants: next });
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <textarea
+                    placeholder="Description"
+                    value={newProduct.description}
+                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                    required
+                  />
+                  <div className="form-actions">
+                    <button type="submit" className="btn btn-primary">Add Product</button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddProduct(false)}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             <div className="products-table">
               <table>
                 <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
@@ -384,9 +954,68 @@ const AdminPanel = () => {
                         </div>
                       </td>
                     </tr>
+<<<<<<< HEAD
                   ))}
                 </tbody>
               </table>
+=======
+                  </thead>
+                  <tbody>
+                    {filteredProducts.map((product) => {
+                      const selectedVariant = (() => {
+                        if (variantLabelFilter === 'all') return null;
+                        return (product?.variants || []).find((v) => String(v?.label || '').trim() === variantLabelFilter) || null;
+                      })();
+                      const displayPrice = (() => {
+                        if (selectedVariant) {
+                          const p = selectedVariant?.price;
+                          return Number.isFinite(Number(p)) ? `₹${Number(p)}` : '—';
+                        }
+                        return `₹${product.price}`;
+                      })();
+                      const displayStock = (() => {
+                        if (selectedVariant) {
+                          const s = selectedVariant?.stock;
+                          if (s === null || s === undefined) return '—';
+                          return `${s} ${product.unit}`;
+                        }
+                        return `${product.stock} ${product.unit}`;
+                      })();
+                      const isOut = (() => {
+                        if (selectedVariant) {
+                          const s = selectedVariant?.stock;
+                          const n = s === null || s === undefined ? 0 : Number(s);
+                          return !(n > 0);
+                        }
+                        return !(Number(product?.stock ?? 0) > 0);
+                      })();
+
+                      return (
+                        <tr key={product._id}>
+                          <td>{product.name}</td>
+                          <td>{product.category}</td>
+                          <td>{displayPrice}</td>
+                          <td>
+                            {displayStock}
+                            {isOut && (
+                              <span style={{ marginLeft: 6, color: '#b00020', fontSize: 12 }}>(Out)</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`status ${product.isActive ? 'active' : 'inactive'}`}>
+                              {product.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td>
+                            <button className="btn" onClick={() => openEdit(product)}>Edit</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             </div>
           </div>
         )}
@@ -424,6 +1053,7 @@ const AdminPanel = () => {
                         </div>
                       </td>
                     </tr>
+<<<<<<< HEAD
                   ))}
                 </tbody>
               </table>
@@ -529,6 +1159,90 @@ const AdminPanel = () => {
                 </div>
 
                 <button type="submit" className="btn btn-primary" disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save Settings'}</button>
+=======
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr key={order._id}>
+                        <td>{order.orderNumber}</td>
+                        <td>{order.user?.name}</td>
+                        <td>₹{order.totalAmount}</td>
+                        <td>
+                          {(() => {
+                            const normalizeLegacy = (s) => {
+                              const map = {
+                                pending: 'CREATED',
+                                confirmed: 'ADMIN_CONFIRMED',
+                                processing: 'ADMIN_CONFIRMED',
+                                shipped: 'SHIPPED',
+                                delivered: 'DELIVERED',
+                                cancelled: 'CANCELLED',
+                              };
+                              return map[s] || s;
+                            };
+                            const from = normalizeLegacy(order.status);
+                            const allowedNext = {
+                              CREATED: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                              PAYMENT_PENDING: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                              PAID: ['ADMIN_CONFIRMED', 'CANCELLED'],
+                              ADMIN_CONFIRMED: ['SHIPPED', 'CANCELLED'],
+                              SHIPPED: ['DELIVERED'],
+                              DELIVERED: [],
+                              CANCELLED: [],
+                            };
+                            const valueMap = {
+                              CREATED: 'ADMIN_CONFIRMED',
+                              PAYMENT_PENDING: 'ADMIN_CONFIRMED',
+                              PAID: 'ADMIN_CONFIRMED',
+                              ADMIN_CONFIRMED: 'ADMIN_CONFIRMED',
+                              SHIPPED: 'SHIPPED',
+                              DELIVERED: 'DELIVERED',
+                              CANCELLED: 'CANCELLED',
+                            };
+                            const currentValue = valueMap[from] || 'ADMIN_CONFIRMED';
+                            const allowed = new Set([currentValue, ...(allowedNext[from] || [])]);
+                            const handleChange = (e) => updateOrderStatus(order._id, e.target.value);
+                            return (
+                              <select value={currentValue} onChange={handleChange}>
+                                <option value="ADMIN_CONFIRMED" disabled={!allowed.has('ADMIN_CONFIRMED')}>Confirmed</option>
+                                <option value="SHIPPED" disabled={!allowed.has('SHIPPED')}>Shipped</option>
+                                <option value="DELIVERED" disabled={!allowed.has('DELIVERED')}>Delivered</option>
+                                <option value="CANCELLED" disabled={!allowed.has('CANCELLED')}>Cancelled</option>
+                              </select>
+                            );
+                          })()}
+                        </td>
+                        <td>{new Date(order.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button className="btn btn-sm" onClick={() => setOrderDetail(order)}>View Details</button>
+                            {String(order?.paymentMethod).toLowerCase() === 'cod' && !['DELIVERED', 'CANCELLED', 'cancelled'].includes(String(order?.status)) && (
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => quickDeliverCOD(order)}
+                                title="Confirm → Ship → Deliver"
+                              >
+                                Deliver (COD)
+                              </button>
+                            )}
+                            {String(order?.paymentMethod).toLowerCase() !== 'cod' && (String(order?.status) === 'PAID') && (
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => quickConfirmOnline(order)}
+                                title="Confirm paid order"
+                              >
+                                Confirm (Online)
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
               </div>
             </form>
           </div>
@@ -540,8 +1254,13 @@ const AdminPanel = () => {
         <div className="modal-overlay" onClick={() => setShowAddProduct(false)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
+<<<<<<< HEAD
               <h3>Add New Product</h3>
               <button className="btn-close" onClick={() => setShowAddProduct(false)}>✕</button>
+=======
+              <h3 style={{ margin: 0 }}>Order Details — {orderDetail.orderNumber}</h3>
+              <button className="modal-close" onClick={() => setOrderDetail(null)}>Close</button>
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             </div>
             <div className="modal-body">
               <form onSubmit={handleAddProduct}>
@@ -561,6 +1280,7 @@ const AdminPanel = () => {
                   <input type="text" placeholder="Image URL" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
                   <textarea placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
                 </div>
+<<<<<<< HEAD
                 {/* Variants Section for New Product */}
                 <div className="variants-section">
                   <h4>Variants (Optional)</h4>
@@ -579,6 +1299,52 @@ const AdminPanel = () => {
                   <button type="submit" className="btn btn-primary">Create Product</button>
                 </div>
               </form>
+=======
+              </div>
+
+              <div className="modal-section">
+                <h4 style={{ margin: '8px 0' }}>Shipping Address</h4>
+                <div style={{ color: '#374151' }}>
+                  <div>{orderDetail.shippingAddress?.name}</div>
+                  <div>{orderDetail.shippingAddress?.street}</div>
+                  <div>{orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.state} {orderDetail.shippingAddress?.zipCode}</div>
+                  <div>{orderDetail.shippingAddress?.country}</div>
+                  <div>{orderDetail.shippingAddress?.phone}</div>
+                </div>
+              </div>
+
+              <div className="modal-section">
+                <h4 style={{ margin: '8px 0' }}>Items</h4>
+                <table className="mini-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Variant</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(orderDetail.items || []).map((it, i) => (
+                      <tr key={i}>
+                        <td>{it.name || it.product?.name}</td>
+                        <td>{it.variantLabel || '—'}</td>
+                        <td>{it.quantity}</td>
+                        <td>₹{it.price}</td>
+                        <td>₹{it.subtotal}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th colSpan={4} style={{ textAlign: 'right' }}>Total</th>
+                      <th>₹{orderDetail.totalAmount}</th>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
             </div>
           </div>
         </div>

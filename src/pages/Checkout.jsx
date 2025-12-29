@@ -350,6 +350,7 @@ const Checkout = () => {
             modal: {
               ondismiss: async () => {
                 try {
+<<<<<<< HEAD
                   await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
                   alert(t('checkout.pay_cancelled_retry', 'Payment was cancelled. You can retry the payment from your Order History.'));
                 } catch (err) {
@@ -357,6 +358,18 @@ const Checkout = () => {
                   alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING.'));
                 }
                 navigate(`/orders/${ord._id}`);
+=======
+                  // Call backend to cancel payment, restore stock, and hide order
+                  await api.post(`/api/orders/${ord._id}/cancel-payment`);
+                  alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your cart items have been restored.'));
+                  navigate('/');
+                } catch (err) {
+                  console.error('Failed to cancel payment:', err);
+                  // Even if the API call fails, still navigate away
+                  alert(t('checkout.pay_cancelled', 'Payment was cancelled.'));
+                  navigate('/');
+                }
+>>>>>>> 473f278ed78b7897e8a609d735bdffbdf0c3c510
               },
             },
             theme: {
@@ -570,7 +583,15 @@ const Checkout = () => {
                 return (
                   <div key={key} className="order-item">
                     <span>{name} x {item.quantity}</span>
-                    <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                    <span>₹{(() => {
+                      const subtotal = item.price * item.quantity;
+                      const rate = Number(item.tax?.gstRate || 0);
+                      const inclusive = Boolean(item.tax?.inclusive ?? false);
+                      if (rate > 0 && !inclusive) {
+                        return (subtotal + (subtotal * rate / 100)).toFixed(2);
+                      }
+                      return subtotal.toFixed(2);
+                    })()}</span>
                   </div>
                 );
               })}
