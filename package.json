@@ -30,7 +30,7 @@
     "baseline-browser-mapping": "^2.9.8",
     "concurrently": "^8.2.0"
   },
-  "proxy": "http://localhost:5000",
+  "proxy": "https://nrds-backend.onrender.com",
   "eslintConfig": {
     "extends": [
       "react-app",

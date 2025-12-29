@@ -35,7 +35,7 @@ const Signup = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1];
       setFormData({
@@ -92,7 +92,7 @@ const Signup = () => {
 
     try {
       const response = await api.post('/api/auth/signup', formData);
-      
+
       if (response.data.success) {
         await login(response.data.token, response.data.user);
         navigate('/');
@@ -109,7 +109,8 @@ const Signup = () => {
 
   const handleGoogleSignup = () => {
     // Redirect to backend Google OAuth endpoint
-    window.location.href = '/api/auth/google';
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://nrds-backend.onrender.com';
+    window.location.href = `${baseUrl}/api/auth/google`;
   };
 
   return (
@@ -120,7 +121,7 @@ const Signup = () => {
             <h1>{t('auth.signup.title', 'Join With NRDS !')}</h1>
             <p>{t('auth.signup.subtitle', 'Create your account to start shopping with voice commands')}</p>
           </div>
-          
+
           <div className="signup-content">
             {error && (
               <div className="error-message">
@@ -188,7 +189,7 @@ const Signup = () => {
                     />
                   </div>
 
-                  <button 
+                  <button
                     type="button"
                     onClick={handleNextStep}
                     className="next-btn"
@@ -289,15 +290,15 @@ const Signup = () => {
                   </div>
 
                   <div className="form-actions">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setStep(1)}
                       className="back-btn"
                     >
                       {t('auth.signup.back', '← Back')}
                     </button>
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       disabled={loading}
                       className="signup-btn"
                     >
@@ -309,7 +310,7 @@ const Signup = () => {
             )}
 
 
-            <button 
+            <button
               onClick={handleGoogleSignup}
               className="google-signup-btn"
               disabled={loading}
@@ -325,7 +326,7 @@ const Signup = () => {
               </p>
             </div>
           </div>
-          
+
           <div className="signup-footer">
             <p>
               {t('auth.terms_signup', 'By creating an account, you agree to our Terms of Service and Privacy Policy.')}

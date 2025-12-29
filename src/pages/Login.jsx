@@ -63,7 +63,7 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     // Redirect to backend Google OAuth endpoint
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REACT_APP_API_URL || 'https://nrds-backend.onrender.com';
     window.location.href = `${baseUrl}/api/auth/google`;
   };
 
