@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api/axios';
 import './AdminPanel.css';
 import { useI18n } from '../contexts/I18nContext';
@@ -31,9 +31,6 @@ const AdminPanel = () => {
     if (!raw) return 0;
     const n = Number(raw);
     return Number.isFinite(n) ? n : 0;
-  });
-  const [hasInitializedLastSeen, setHasInitializedLastSeen] = useState(() => {
-    return Boolean(localStorage.getItem('admin_last_seen_order_ts'));
   });
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
@@ -177,54 +174,7 @@ const AdminPanel = () => {
     };
   }, [notifOpen]);
 
-  useEffect(() => {
-    if (activeTab === 'products') {
-      const delayDebounceFn = setTimeout(() => {
-        fetchProducts(1);
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    } else if (activeTab === 'orders') {
-      fetchOrders();
-    } else if (activeTab === 'settings') {
-      fetchSettings();
-    }
-  }, [productSearch, productCategoryFilter, productStockFilter, activeTab]);
-
-  useEffect(() => {
-    if (hasInitializedLastSeen) return;
-    const now = Date.now();
-    localStorage.setItem('admin_last_seen_order_ts', String(now));
-    setLastSeenOrderTs(now);
-    setHasInitializedLastSeen(true);
-  }, [hasInitializedLastSeen]);
-
-  useEffect(() => {
-    let alive = true;
-    const poll = async () => {
-      try {
-        const response = await api.get('/api/admin/orders');
-        const all = response.data.orders || [];
-
-        // Track both new orders and status updates using updatedAt
-        const interestingOnes = all
-          .filter(o => {
-            const upTs = new Date(o?.updatedAt || 0).getTime();
-            return upTs > lastSeenOrderTs;
-          })
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-          .slice(0, 10);
-
-        if (alive) setUnseenOrders(interestingOnes);
-      } catch (e) {
-        console.error('Initial settings fetch failed:', e);
-      }
-    };
-    poll();
-    const id = setInterval(poll, 15000);
-    return () => { alive = false; clearInterval(id); };
-  }, [lastSeenOrderTs]);
-
-  const fetchProducts = async (page = 1) => {
+  const fetchProducts = useCallback(async (page = 1) => {
     setLoading(true);
     try {
       const response = await api.get('/api/admin/products', {
@@ -245,7 +195,20 @@ const AdminPanel = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [productSearch, productCategoryFilter, productStockFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      const delayDebounceFn = setTimeout(() => {
+        fetchProducts(1);
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    } else if (activeTab === 'orders') {
+      fetchOrders();
+    } else if (activeTab === 'settings') {
+      fetchSettings();
+    }
+  }, [productSearch, productCategoryFilter, productStockFilter, activeTab, fetchProducts]);
 
   const fetchOrders = async () => {
     setLoading(true);

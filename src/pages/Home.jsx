@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import ProductCard from '../components/ProductCard';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import './Home.css';
 import { useI18n } from '../contexts/I18nContext';
@@ -8,7 +7,6 @@ import { useI18n } from '../contexts/I18nContext';
 const Home = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
   const scrollRef = React.useRef(null);
 
   const [categories, setCategories] = useState([]);

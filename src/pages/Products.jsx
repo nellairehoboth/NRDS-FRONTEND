@@ -26,6 +26,7 @@ const Products = () => {
   const [categorySearch, setCategorySearch] = useState('');
 
   // Sync local search input with filter when filter changes externally (e.g. URL)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (filters.category !== categorySearch && !isCategoryOpen) {
       setCategorySearch(filters.category || '');

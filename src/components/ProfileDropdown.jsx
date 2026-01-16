@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
-import { handleImageError } from '../utils/imageUtils';
 import './ProfileDropdown.css';
 
 const ProfileDropdown = () => {
