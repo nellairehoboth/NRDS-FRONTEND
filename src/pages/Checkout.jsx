@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,18 +9,8 @@ import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
 import { handleImageError } from '../utils/imageUtils';
 import { parseNominatimAddress } from '../utils/mapUtils';
+import { loadRazorpayScript } from '../utils/razorpay';
 
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    if (document.getElementById('razorpay-checkout-js')) return resolve(true);
-    const script = document.createElement('script');
-    script.id = 'razorpay-checkout-js';
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
@@ -83,7 +73,7 @@ const Checkout = () => {
     }
   }, [isActuallyFree]);
 
-  const calculateDynamicSlabCharge = (dist) => {
+  const calculateDynamicSlabCharge = useCallback((dist) => {
     const slabs = [...(deliverySettings.deliverySlabs || [])].sort((a, b) => a.minDistance - b.minDistance);
     if (!slabs.length) return 0;
 
@@ -96,7 +86,7 @@ const Checkout = () => {
 
     // If shorter than the first slab's minDistance, it might be free or use the first slab
     return 0;
-  };
+  }, [deliverySettings.deliverySlabs]);
 
   const deliveryCharge = isActuallyFree ? 0 : (parseFloat(customDeliveryCharge) || 0);
 
@@ -104,17 +94,6 @@ const Checkout = () => {
     setShippingAddress(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleDistanceChange = (val) => {
-    if (val === '') { setDistance(''); return; }
-    const n = parseFloat(val);
-    if (!isNaN(n)) setDistance(val);
-  };
-
-  const handleChargeChange = (val) => {
-    if (val === '') { setCustomDeliveryCharge(''); return; }
-    const n = parseFloat(val);
-    if (!isNaN(n)) setCustomDeliveryCharge(val);
-  };
 
   const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the earth in km
@@ -129,7 +108,7 @@ const Checkout = () => {
     return d * 1.3; // Add 30% buffer to approximate road distance
   };
 
-  const fetchRoadDistance = async (userLat, userLng) => {
+  const fetchRoadDistance = useCallback(async (userLat, userLng) => {
     try {
       setDistanceError('');
       const shopLat = deliverySettings.storeLatitude || SHOP_LOCATION.lat;
@@ -166,9 +145,9 @@ const Checkout = () => {
     } finally {
       setIsLocating(false);
     }
-  };
+  }, [deliverySettings, calculateDynamicSlabCharge]);
 
-  const handleGeocodeAddress = async () => {
+  const handleGeocodeAddress = useCallback(async () => {
     const { street, city, state, zipCode } = shippingAddress;
     const query = [street, city, state, zipCode].filter(Boolean).join(', ');
     if (!query.trim()) return;
@@ -188,7 +167,7 @@ const Checkout = () => {
       console.error(err);
       setIsLocating(false);
     }
-  };
+  }, [shippingAddress, fetchRoadDistance]);
 
   // Debounced Automatic Geocoding
   useEffect(() => {
@@ -205,7 +184,7 @@ const Checkout = () => {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [shippingAddress.street, shippingAddress.city, shippingAddress.zipCode]);
+  }, [shippingAddress, handleGeocodeAddress]);
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -445,101 +424,90 @@ const Checkout = () => {
                   onChange={(e) => handleAddressChange('street', e.target.value)}
                   className="full-width"
                 />
-                <input
-                  type="text"
-                  placeholder={t('checkout.city', 'City')}
-                  value={shippingAddress.city}
-                  onChange={(e) => handleAddressChange('city', e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder={t('checkout.state', 'State')}
-                  value={shippingAddress.state}
-                  onChange={(e) => handleAddressChange('state', e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder={t('checkout.zip', 'ZIP Code')}
-                  value={shippingAddress.zipCode}
-                  onChange={(e) => handleAddressChange('zipCode', e.target.value)}
-                />
+                <div className="three-cols">
+                  <input
+                    type="text"
+                    placeholder={t('checkout.city', 'City')}
+                    value={shippingAddress.city}
+                    onChange={(e) => handleAddressChange('city', e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('checkout.state', 'State')}
+                    value={shippingAddress.state}
+                    onChange={(e) => handleAddressChange('state', e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder={t('checkout.zip', 'ZIP Code')}
+                    value={shippingAddress.zipCode}
+                    onChange={(e) => handleAddressChange('zipCode', e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="delivery-section" style={{ marginTop: '20px', padding: '20px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-              <h3 style={{ marginBottom: '15px' }}>📍 {t('checkout.delivery_location', 'Choose Delivery Location')}</h3>
+            <div className="delivery-section">
+              <div className="delivery-container">
+                <h3>📍 {t('checkout.delivery_location', 'Choose Delivery Location')}</h3>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={handleUseCurrentLocation}
-                  disabled={isLocating}
-                  style={{
-                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
-                    backgroundColor: '#2c5530', color: 'white', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none'
-                  }}
-                >
-                  {isLocating ? '⌛' : <img src="/gps-target-icon.png" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={handleGeocodeAddress}
-                  disabled={isLocating}
-                  style={{
-                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
-                    backgroundColor: '#f1f1f1', color: '#333', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid #ddd'
-                  }}
-                >
-                  🔍 {t('checkout.locate_address', 'Locate from Address')}
-                </button>
+                <div className="loc-btn-group">
+                  <button
+                    type="button"
+                    className="loc-btn loc-btn-primary"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                  >
+                    {isLocating ? '⌛' : <img src="https://cdn-icons-gif.flaticon.com/6844/6844595.gif" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
+                  </button>
+                  <button
+                    type="button"
+                    className="loc-btn loc-btn-secondary"
+                    onClick={handleGeocodeAddress}
+                    disabled={isLocating}
+                  >
+                    🔍 {t('checkout.locate_address', 'Locate from Address')}
+                  </button>
+                  <button
+                    type="button"
+                    className="loc-btn loc-btn-danger"
+                    onClick={() => {
+                      setShippingAddress(prev => ({
+                        ...prev,
+                        street: '',
+                        city: '',
+                        state: '',
+                        zipCode: ''
+                      }));
+                      setDistance('0');
+                      setCustomDeliveryCharge('0');
+                      setShippingLocation(null);
+                      setDistanceError('');
+                    }}
+                  >
+                    ❌ {t('checkout.reset', 'Reset Address')}
+                  </button>
+                </div>
 
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => {
-                    setShippingAddress(prev => ({
-                      ...prev,
-                      street: '',
-                      city: '',
-                      state: '',
-                      zipCode: ''
-                    }));
-                    setDistance('0');
-                    setCustomDeliveryCharge('0');
-                    setShippingLocation(null);
-                    setDistanceError('');
-                  }}
-                  style={{
-                    flex: 1, minWidth: '150px', borderRadius: '30px', padding: '12px',
-                    backgroundColor: '#fee2e2', color: '#b91c1c', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid #fecaca'
-                  }}
-                >
-                  ❌ {t('checkout.reset', 'Reset Address')}
-                </button>
+                {distanceError && <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '10px' }}>{distanceError}</p>}
+
+                <div className="distance-info-card">
+                  <p>
+                    <span>{t('checkout.distance', 'Road Distance:')}</span>
+                    <strong>{isLocating ? 'Calculating...' : `${distance} KM`}</strong>
+                  </p>
+                  <p>
+                    <span>{t('checkout.applied_charge', 'Delivery Charge:')}</span>
+                    <strong>{isLocating ? '...' : `₹${deliveryCharge}`}</strong>
+                  </p>
+                </div>
+
+                {isActuallyFree && (
+                  <div className="free-delivery-text">
+                    {t('checkout.free_delivery', 'Free delivery applied!')} ✅
+                  </div>
+                )}
               </div>
-
-
-              {distanceError && <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '10px' }}>{distanceError}</p>}
-
-              <div style={{ marginTop: '10px', padding: '10px', borderRadius: '6px', background: '#eef2ff', border: '1px solid #c7d2fe' }}>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: '500', color: '#3730a3' }}>
-                  {t('checkout.distance', 'Road Distance:')} <strong>{isLocating ? 'Calculating...' : `${distance} KM`}</strong>
-                </p>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: '500', color: '#1e40af' }}>
-                  {t('checkout.applied_charge', 'Delivery Charge:')} <strong>{isLocating ? '...' : `₹${deliveryCharge}`}</strong>
-                </p>
-              </div>
-
-
-
-              <small style={{ color: '#6b7280', display: 'block', marginTop: '10px' }}>
-                {isActuallyFree ? t('checkout.free_delivery', 'Free delivery applied! ✅') : t('checkout.slab_applied', 'Automatic slab rate applied based on road distance.')}
-              </small>
             </div>
 
             <div className="payment-section">
@@ -569,13 +537,13 @@ const Checkout = () => {
 
           <div className="order-summary">
             <h3>{t('checkout.order_summary', 'Order Summary')}</h3>
-            <div className="order-items">
+            <div className="order-items-list">
               {cart.items.map((item, index) => {
                 const product = item?.product || {};
                 const key = product?._id || item?.productId || `idx-${index}`;
                 const name = product?.name || item?.name || 'Product';
                 return (
-                  <div key={key} className="order-item">
+                  <div key={key} className="summary-item">
                     <span>{name} x {item.quantity}</span>
                     <span>₹{(() => {
                       const subtotal = item.price * item.quantity;
@@ -590,23 +558,26 @@ const Checkout = () => {
                 );
               })}
             </div>
-            <div className="order-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+
+            <div className="summary-divider"></div>
+
+            <div className="summary-row">
               <span>{t('checkout.subtotal', 'Subtotal:')}</span>
               <span>₹{cart.totalAmount.toFixed(2)}</span>
             </div>
-            <div className="order-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div className="summary-row">
               <span>{t('checkout.delivery_fee', 'Delivery Fee:')}</span>
               <span>{deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : t('checkout.free', 'Free')}</span>
             </div>
-            <div className="order-total" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
-              <strong>{t('checkout.total', 'Total:')}</strong>
-              <strong>₹{(cart.totalAmount + deliveryCharge).toFixed(2)}</strong>
+            <div className="summary-row total-row">
+              <span>{t('checkout.total', 'Total:')}</span>
+              <span>₹{(cart.totalAmount + deliveryCharge).toFixed(2)}</span>
             </div>
+
             <button
               onClick={handlePlaceOrder}
               disabled={loading}
-              className="btn btn-primary place-order-btn"
-              style={{ width: '100%', marginTop: '20px' }}
+              className="place-order-btn"
             >
               {loading ? t('checkout.placing', 'Placing Order...') : t('checkout.place_order', 'Place Order')}
             </button>

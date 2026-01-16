@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import VoiceSearch from '../components/VoiceSearch';
@@ -19,23 +19,33 @@ const Products = () => {
     sortBy: searchParams.get('sortBy') || 'name'
   });
 
-  const categories = [
-    'fruits', 'vegetables', 'dairy', 'meat', 'bakery',
-    'beverages', 'snacks', 'frozen', 'pantry', 'household'
-  ];
+  const [categories, setCategories] = useState([]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [filters]);
+  /* Custom Category Search State */
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
 
+  // Sync local search input with filter when filter changes externally (e.g. URL)
   useEffect(() => {
-    const search = searchParams.get('search');
-    if (search && search !== filters.search) {
-      setFilters(prev => ({ ...prev, search }));
+    if (filters.category !== categorySearch && !isCategoryOpen) {
+      setCategorySearch(filters.category || '');
     }
-  }, [searchParams]);
+  }, [filters.category]);
 
-  const fetchProducts = async () => {
+  const filteredCategories = categories.filter(c =>
+    c.toLowerCase().includes((categorySearch || '').toLowerCase())
+  );
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await api.get('/api/products/categories');
+      setCategories(response.data.categories || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
@@ -44,6 +54,9 @@ const Products = () => {
         if (value) queryParams.append(key, value);
       });
 
+      // Explicitly set a high limit if not provided
+      if (!queryParams.has('limit')) queryParams.append('limit', '1000');
+
       const response = await api.get(`/api/products?${queryParams}`);
       setProducts(response.data.products || []);
     } catch (error) {
@@ -51,7 +64,25 @@ const Products = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    fetchProducts();
+  }, [filters, fetchProducts]);
+
+  useEffect(() => {
+    const search = searchParams.get('search') || '';
+    const category = searchParams.get('category') || '';
+
+    if (search !== filters.search || category !== filters.category) {
+      setFilters(prev => ({ ...prev, search, category }));
+    }
+  }, [searchParams, filters.search, filters.category]);
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
@@ -80,28 +111,52 @@ const Products = () => {
     setSearchParams({});
   };
 
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
   return (
     <div className="products-page">
       <div className="container">
         <div className="products-header">
-          <h1>{t('products.title', 'Products')}</h1>
+          <div className="title-section">
+            <h1>{t('products.title', 'Products')}</h1>
+            <button
+              className="mobile-filter-toggle"
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+            >
+              {showMobileFilters ? '✕' : '🔍 ' + t('products.filters.title', 'Filters')}
+            </button>
+          </div>
           <div className="products-search">
             <VoiceSearch onSearch={handleVoiceSearch} />
           </div>
         </div>
 
         <div className="products-content">
+          {/* Mobile Overlay */}
+          {showMobileFilters && (
+            <div
+              className="filters-overlay"
+              onClick={() => setShowMobileFilters(false)}
+            ></div>
+          )}
+
           {/* Filters Sidebar */}
-          <aside className="filters-sidebar">
+          <aside className={`filters-sidebar ${showMobileFilters ? 'show' : ''}`}>
             <div className="filters-header">
               <h3>{t('products.filters.title', 'Filters')}</h3>
-              <button onClick={clearFilters} className="clear-filters-btn">
+              <button
+                onClick={() => {
+                  clearFilters();
+                  setShowMobileFilters(false);
+                }}
+                className="clear-filters-btn"
+              >
                 {t('products.filters.clear_all', 'Clear All')}
               </button>
             </div>
 
             <div className="filter-group">
-              <label>{t('products.filters.search', 'Search')}</label>
+              <label>🔍 {t('products.filters.search', 'Search')}</label>
               <input
                 type="text"
                 value={filters.search}
@@ -112,23 +167,67 @@ const Products = () => {
             </div>
 
             <div className="filter-group">
-              <label>{t('products.filters.category', 'Category')}</label>
-              <select
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">{t('products.filters.all_categories', 'All Categories')}</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                  </option>
-                ))}
-              </select>
+              <label>📂 {t('products.filters.category', 'Category')}</label>
+              <div className="custom-select-wrapper" onBlur={(e) => {
+                // Close dropdown if click outside
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  setIsCategoryOpen(false);
+                  // Reset search to selected value if no new selection made
+                  if (categorySearch !== filters.category) {
+                    setCategorySearch(filters.category || '');
+                  }
+                }
+              }}>
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onFocus={() => setIsCategoryOpen(true)}
+                  onChange={(e) => {
+                    setCategorySearch(e.target.value);
+                    setIsCategoryOpen(true);
+                    if (e.target.value === '') handleFilterChange('category', '');
+                  }}
+                  placeholder={t('products.filters.all_categories', 'Type or Select Category')}
+                  className="filter-input"
+                />
+                {isCategoryOpen && (
+                  <ul className="custom-dropdown-list">
+                    <li
+                      className={`dropdown-item ${filters.category === '' ? 'selected' : ''}`}
+                      onMouseDown={() => {
+                        handleFilterChange('category', '');
+                        setCategorySearch('');
+                        setIsCategoryOpen(false);
+                      }}
+                    >
+                      {t('products.filters.all_categories', 'All Categories')}
+                    </li>
+                    {filteredCategories.length > 0 ? (
+                      filteredCategories.map(category => (
+                        <li
+                          key={category}
+                          className={`dropdown-item ${filters.category === category ? 'selected' : ''}`}
+                          onMouseDown={() => {
+                            handleFilterChange('category', category);
+                            setCategorySearch(category);
+                            setIsCategoryOpen(false);
+                          }}
+                        >
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="dropdown-item no-results">No matches found</li>
+                    )}
+                  </ul>
+                )}
+                {/* Arrow Icon */}
+                <span className="custom-select-arrow">▼</span>
+              </div>
             </div>
 
             <div className="filter-group">
-              <label>{t('products.filters.price_range', 'Price Range')}</label>
+              <label>💰 {t('products.filters.price_range', 'Price Range')}</label>
               <div className="price-inputs">
                 <input
                   type="number"
@@ -149,19 +248,20 @@ const Products = () => {
             </div>
 
             <div className="filter-group">
-              <label>{t('products.filters.sort_by', 'Sort By')}</label>
+              <label>🔃 {t('products.filters.sort_by', 'Sort By')}</label>
               <select
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
                 className="filter-select"
               >
-                <option value="name">{t('products.filters.sort_name', 'Name')}</option>
-                <option value="price">{t('products.filters.sort_price_asc', 'Price: Low to High')}</option>
-                <option value="-price">{t('products.filters.sort_price_desc', 'Price: High to Low')}</option>
-                <option value="category">{t('products.filters.sort_category', 'Category')}</option>
-                <option value="-createdAt">{t('products.filters.sort_newest', 'Newest First')}</option>
+                <option value="name">🔤 {t('products.filters.sort_name', 'Name')}</option>
+                <option value="price">📉 {t('products.filters.sort_price_asc', 'Price: Low to High')}</option>
+                <option value="-price">📈 {t('products.filters.sort_price_desc', 'Price: High to Low')}</option>
+                <option value="category">🏷️ {t('products.filters.sort_category', 'Category')}</option>
+                <option value="-createdAt">✨ {t('products.filters.sort_newest', 'Newest First')}</option>
               </select>
             </div>
+
           </aside>
 
           {/* Products Grid */}

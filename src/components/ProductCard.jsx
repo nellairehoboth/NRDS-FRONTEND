@@ -13,7 +13,7 @@ const ProductCard = ({ product, onDelete }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [quantity, setQuantity] = useState('1'); // Use string to allow empty state while typing
-  const [imageError, setImageError] = useState(false);
+
   const [selectedVariantId, setSelectedVariantId] = useState(() => {
     const active = Array.isArray(product?.variants) ? product.variants.filter(v => v && v.isActive !== false) : [];
     return active.length ? String(active[0]._id) : '';
@@ -69,7 +69,7 @@ const ProductCard = ({ product, onDelete }) => {
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
-      alert('Please login to add items to cart');
+      alert('Please login to add to cart');
       return;
     }
 
@@ -128,11 +128,14 @@ const ProductCard = ({ product, onDelete }) => {
     }
   };
 
+  const hasSecondaryImage = product.images && product.images.length > 0;
+
   return (
-    <div className="product-card">
+    <div className={`product-card ${hasSecondaryImage ? 'has-hover-image' : ''}`}>
       {discountPercentage > 0 && (
         <div className="discount-badge">{discountPercentage}% OFF</div>
       )}
+
       {isAdmin && (
         <button
           className="delete-product-btn"
@@ -143,39 +146,45 @@ const ProductCard = ({ product, onDelete }) => {
           {isDeleting ? '⏳' : '🗑️'}
         </button>
       )}
-      <div className="product-image">
-        {!imageError && product.image ? (
-          <img
-            src={sanitizeImageUrl(product.image)}
-            alt={product.name}
-            onError={(e) => handleImageError(e)}
-          />
-        ) : (
-          <div className="placeholder-image">
-            <div className="placeholder-icon">
-              {product.category === 'fruits' && '🍎'}
-              {product.category === 'vegetables' && '🥕'}
-              {product.category === 'dairy' && '🥛'}
-              {product.category === 'meat' && '🥩'}
-              {product.category === 'bakery' && '🍞'}
-              {product.category === 'beverages' && '🧃'}
-              {product.category === 'snacks' && '🍿'}
-              {product.category === 'frozen' && '🧊'}
-              {!['fruits', 'vegetables', 'dairy', 'meat', 'bakery', 'beverages', 'snacks', 'frozen'].includes(product.category) && '📦'}
+
+      <div className="product-image-container">
+        <div className="product-image">
+          {product.image ? (
+            <>
+              <img
+                src={sanitizeImageUrl(product.image)}
+                alt={product.name}
+                className="primary-img"
+                onError={(e) => handleImageError(e)}
+              />
+              {product.images && product.images.length > 0 && (
+                <img
+                  src={sanitizeImageUrl(product.images[0] || product.image)}
+                  alt={`${product.name} alternate`}
+                  className="secondary-img"
+                  onError={(e) => (e.target.style.display = 'none')}
+                />
+              )}
+            </>
+          ) : (
+            <div className="placeholder-image">
+              <span className="placeholder-icon">📦</span>
             </div>
-            <span className="placeholder-text">{displayName}</span>
-          </div>
-        )}
-        {product.stock === 0 && (
-          <div className="out-of-stock-overlay">
-            <span>Out of Stock</span>
-          </div>
-        )}
+          )}
+
+          {availableStock === 0 && (
+            <div className="out-of-stock-overlay">
+              <span>Out of Stock</span>
+            </div>
+          )}
+
+
+        </div>
       </div>
 
       <div className="product-info">
-        <h3 className="product-name">{displayName}</h3>
-        <p className="product-description">{product.description}</p>
+        <h3 className="product-name" style={{ textTransform: 'capitalize' }}>{displayName}</h3>
+        <p className="product-description" style={{ textTransform: 'capitalize' }}>{displayName}</p>
 
         <div className="product-details">
           <span className="product-category">{product.category}</span>
@@ -183,89 +192,78 @@ const ProductCard = ({ product, onDelete }) => {
         </div>
 
         {activeVariants.length > 0 && (
-          <div className="product-details">
-            <select
-              value={selectedVariantId}
-              onChange={(e) => {
-                setSelectedVariantId(e.target.value);
-                setQuantity('1');
-              }}
-              style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #e0e0e0' }}
-            >
-              {activeVariants.map((v) => (
-                <option key={String(v._id)} value={String(v._id)}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            className="variant-select"
+            value={selectedVariantId}
+            onChange={(e) => {
+              setSelectedVariantId(e.target.value);
+              setQuantity('1');
+            }}
+          >
+            {activeVariants.map((v) => (
+              <option key={String(v._id)} value={String(v._id)}>
+                {v.label}
+              </option>
+            ))}
+          </select>
         )}
 
         <div className="product-price">
-          <span className="price">₹{unitPrice}</span>
-          {discountPercentage > 0 && <span className="mrp-strikethrough">₹{unitMrp}</span>}
+          <div className="price-box">
+            <span className="price">₹{unitPrice}</span>
+            {discountPercentage > 0 && <span className="mrp-strikethrough">₹{unitMrp}</span>}
+          </div>
           {availableStock > 0 && (
             <span className="stock-info">{availableStock} available</span>
           )}
         </div>
 
-        {availableStock > 0 ? (
-          <div className="product-actions">
-            <div className="quantity-selector">
-              <button
-                onClick={() => setQuantity(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
-                className="quantity-btn"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                className="quantity-input"
-                value={quantity}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '') {
-                    setQuantity('');
-                  } else {
-                    const parsed = parseInt(val);
-                    if (!isNaN(parsed)) {
-                      if (parsed > availableStock) {
-                        setQuantity(String(availableStock));
-                      } else {
-                        setQuantity(String(parsed));
-                      }
+        <div className="product-actions">
+          {availableStock > 0 ? (
+            <>
+              <div className="quantity-selector">
+                <button
+                  onClick={() => setQuantity(prev => String(Math.max(1, (parseInt(prev) || 1) - 1)))}
+                  className="quantity-btn"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  className="quantity-input"
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') setQuantity('');
+                    else {
+                      const parsed = parseInt(val);
+                      if (!isNaN(parsed)) setQuantity(String(Math.min(availableStock, Math.max(1, parsed))));
                     }
-                  }
-                }}
-                onBlur={() => {
-                  if (quantity === '' || parseInt(quantity) < 1) {
-                    setQuantity('1');
-                  }
-                }}
-              />
-              <button
-                onClick={() => setQuantity(prev => String(Math.min(availableStock, (parseInt(prev) || 0) + 1)))}
-                className="quantity-btn"
-              >
-                +
-              </button>
-            </div>
+                  }}
+                  onBlur={() => { if (quantity === '' || parseInt(quantity) < 1) setQuantity('1'); }}
+                />
+                <button
+                  onClick={() => setQuantity(prev => String(Math.min(availableStock, (parseInt(prev) || 0) + 1)))}
+                  className="quantity-btn"
+                >
+                  +
+                </button>
+              </div>
 
-            <button
-              onClick={handleAddToCart}
-              disabled={isAdding || !isAuthenticated}
-              className={`add-to-cart-btn ${isAdding ? 'adding' : ''}`}
-            >
-              {isAdding ? 'Adding...' : 'Add to Cart'}
-            </button>
-          </div>
-        ) : (
-          <button className="add-to-cart-btn disabled" disabled>
-            Out of Stock
-          </button>
-        )}
+              <button
+                onClick={handleAddToCart}
+                disabled={isAdding}
+                className="add-to-cart-btn"
+              >
+                {isAdding ? 'Adding...' : 'Add to Cart'}
+              </button>
+            </>
+          ) : (
+            <button className="add-to-cart-btn" disabled>Out of Stock</button>
+          )}
+        </div>
       </div>
+
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./VoiceSearch.css";
 
@@ -8,36 +8,24 @@ const VoiceSearch = ({ onSearch }) => {
   const [error, setError] = useState("");
   const [recognition, setRecognition] = useState(null);
   const navigate = useNavigate();
+  const inputRef = useRef(null);
 
-  /* =========================
-     Clean voice text
-  ========================== */
   const cleanCommand = (text) => {
     return text
       .toLowerCase()
-      .replace(/[.,!?]+$/g, "") // remove ending punctuation
+      .replace(/[.,!?]+$/g, "")
       .replace(/\s+/g, " ")
       .trim();
   };
 
-  /* =========================
-     Handle Voice Commands
-  ========================== */
   const handleVoiceCommand = useCallback(
     (command) => {
       console.log("Voice command:", command);
-
       if (command.includes("go to cart") || command.includes("show cart")) {
         navigate("/cart");
-      } else if (
-        command.includes("go to products") ||
-        command.includes("show products")
-      ) {
+      } else if (command.includes("go to products") || command.includes("show products")) {
         navigate("/products");
-      } else if (
-        command.includes("go to orders") ||
-        command.includes("show orders")
-      ) {
+      } else if (command.includes("go to orders") || command.includes("show orders")) {
         navigate("/orders");
       } else if (command.includes("go home")) {
         navigate("/");
@@ -47,7 +35,6 @@ const VoiceSearch = ({ onSearch }) => {
           navigate(`/products?search=${encodeURIComponent(searchTerm)}`);
         }
       } else {
-        // Default search
         if (onSearch) {
           onSearch(command);
         } else {
@@ -58,14 +45,9 @@ const VoiceSearch = ({ onSearch }) => {
     [navigate, onSearch]
   );
 
-  /* =========================
-     Setup Speech Recognition
-  ========================== */
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
       recognitionInstance.continuous = false;
       recognitionInstance.interimResults = false;
@@ -79,7 +61,6 @@ const VoiceSearch = ({ onSearch }) => {
       recognitionInstance.onresult = (event) => {
         const rawSpeech = event.results[0][0].transcript;
         const cleanedSpeech = cleanCommand(rawSpeech);
-
         setTranscript(cleanedSpeech);
         handleVoiceCommand(cleanedSpeech);
       };
@@ -87,16 +68,8 @@ const VoiceSearch = ({ onSearch }) => {
       recognitionInstance.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
-
         let userMessage = "Speech recognition failed.";
-        if (event.error === 'no-speech') {
-          userMessage = "No speech detected. Please try again.";
-        } else if (event.error === 'audio-capture') {
-          userMessage = "No microphone found. Ensure it's plugged in.";
-        } else if (event.error === 'not-allowed') {
-          userMessage = "Microphone access denied.";
-        }
-
+        if (event.error === 'no-speech') userMessage = "No speech detected.";
         setError(userMessage);
         setTimeout(() => setError(""), 3000);
       };
@@ -109,69 +82,53 @@ const VoiceSearch = ({ onSearch }) => {
     }
   }, [handleVoiceCommand]);
 
-  /* =========================
-     Controls
-  ========================== */
-  const startListening = () => {
+  const toggleListening = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (recognition) {
-      setTranscript("");
-      setError("");
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error("Failed to start recognition:", err);
+      if (isListening) {
+        recognition.stop();
+      } else {
+        setTranscript("");
+        setError("");
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error("Failed to start:", err);
+        }
       }
     } else {
-      alert("Speech recognition not supported. Use Chrome or Edge.");
+      alert("Speech recognition not supported.");
     }
   };
 
-  const stopListening = () => {
-    if (recognition) {
-      recognition.stop();
+  const handleManualSearch = (e) => {
+    if (e.key === 'Enter' && transcript.trim()) {
+      handleVoiceCommand(cleanCommand(transcript));
     }
   };
 
-  /* =========================
-     UI
-  ========================== */
   return (
-    <div className="voice-search">
-      <div className="search-input-container">
+    <div className="voice-search-container">
+      <div className={`search-pill-input ${isListening ? "listening" : ""}`}>
         <input
+          ref={inputRef}
           type="text"
-          placeholder="Search products or say a command..."
+          placeholder={isListening ? "Listening..." : "Search products or say a command..."}
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && transcript.trim()) {
-              handleVoiceCommand(cleanCommand(transcript));
-            }
-          }}
-          className="search-input"
+          onKeyDown={handleManualSearch}
+          className="search-input-field"
         />
-
         <button
-          onClick={isListening ? stopListening : startListening}
-          className={`voice-btn ${isListening ? "listening" : ""} ${error ? "error" : ""}`}
-          title={isListening ? "Stop listening" : "Start voice search"}
+          className={`mic-icon-btn ${isListening ? "active" : ""}`}
+          onClick={toggleListening}
+          title="Voice Search"
         >
           {isListening ? '⏹️' : '🎤'}
         </button>
       </div>
-
-      {error && (
-        <div className="voice-error-message">
-          {error}
-        </div>
-      )}
-
-      {isListening && (
-        <div className="listening-indicator">
-          <div className="pulse"></div>
-          <span>Listening...</span>
-        </div>
-      )}
+      {error && <div className="search-error-tiny">{error}</div>}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -79,7 +79,7 @@ const MapModal = ({
                 setSelectedLoc(initialLocation);
             }
         }
-    }, [initialLocation]); // Removed selectedLoc from dependencies to allow manual map clicks
+    }, [initialLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch route when locations exist
     useEffect(() => {
@@ -145,6 +145,8 @@ const MapModal = ({
                 const { lat, lon } = data[0];
                 const newLoc = { lat: parseFloat(lat), lng: parseFloat(lon) };
                 setSelectedLoc(newLoc);
+            } else {
+                alert("No location found. Please try a different search term.");
             }
         } catch (err) {
             console.error("Search failed:", err);
@@ -289,22 +291,11 @@ const MapModal = ({
                             className="map-floating-location-btn"
                             title="Use Current Location"
                         >
-                            <img src="/gps-target-icon.png" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '22px', height: '22px' }} />
+                            <img src="https://cdn-icons-gif.flaticon.com/6844/6844595.gif" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '22px', height: '22px' }} />
                         </button>
                         {locationError && (
-                            <div style={{
-                                position: 'absolute',
-                                top: '155px',
-                                right: '20px',
-                                color: '#ef4444',
-                                backgroundColor: 'rgba(255,255,255,0.9)',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                fontSize: '0.85rem',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                zIndex: 1000
-                            }}>
-                                {locationError}
+                            <div className="map-error-floating">
+                                ⚠️ {locationError}
                             </div>
                         )}
                     </>
@@ -334,7 +325,19 @@ const MapModal = ({
                         )}
 
                         {selectedLoc?.lat && (
-                            <Marker position={[selectedLoc.lat, selectedLoc.lng]} icon={customerIcon}>
+                            <Marker
+                                position={[selectedLoc.lat, selectedLoc.lng]}
+                                icon={customerIcon}
+                                draggable={!viewOnly}
+                                eventHandlers={{
+                                    dragend: (e) => {
+                                        const marker = e.target;
+                                        const position = marker.getLatLng();
+                                        setSelectedLoc({ lat: position.lat, lng: position.lng });
+                                    },
+                                }}
+                            >
+                                <Popup>Your Location<br />(Drag to adjust)</Popup>
                             </Marker>
                         )}
 

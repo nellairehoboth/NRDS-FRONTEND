@@ -1,0 +1,230 @@
+/* Footer.css - Dark Theme Replication */
+
+.site-footer {
+    background-color: #0d1e15;
+    /* Deep Green Black */
+    color: #ffffff;
+    padding: 60px 0 30px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    margin-top: auto;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 40px;
+}
+
+/* 1. Left Links Section */
+.footer-section.left-links {
+    flex: 1;
+    min-width: 200px;
+}
+
+.footer-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.footer-menu a {
+    color: #b0c4ba;
+    text-decoration: none;
+    transition: color 0.3s;
+    font-weight: 400;
+}
+
+.footer-menu a:hover {
+    color: #00b207;
+    /* Bright Green Accent */
+}
+
+/* 2. Center Brand Section */
+.footer-section.center-brand {
+    flex: 2;
+    min-width: 300px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.footer-logo .brand-icon {
+    font-size: 32px;
+}
+
+.footer-logo .brand-name {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+}
+
+.brand-description {
+    color: #b0c4ba;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    max-width: 500px;
+}
+
+.social-icons {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 40px;
+}
+
+.social-link {
+    width: 40px;
+    height: 40px;
+    border-radius: 5px;
+    /* Slightly rounded */
+    background: transparent;
+    color: #00b207;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.social-link:hover {
+    background: #00b207;
+    color: white;
+}
+
+.copyright-text {
+    color: #666;
+    font-size: 12px;
+    margin-top: auto;
+}
+
+/* 3. Right Newsletter Section */
+.footer-section.right-newsletter {
+    flex: 1.2;
+    min-width: 280px;
+}
+
+.newsletter-title {
+    color: #00b207;
+    /* Bright Green */
+    font-size: 18px;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.newsletter-desc {
+    color: #b0c4ba;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.newsletter-input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.newsletter-input {
+    background: #0d1e15;
+    /* Same as bg */
+    border: 1px solid #2d4539;
+    padding: 12px 16px;
+    border-radius: 4px;
+    color: white;
+    flex: 1;
+    outline: none;
+}
+
+.newsletter-input:focus {
+    border-color: #00b207;
+}
+
+.newsletter-btn {
+    background: #00b207;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.newsletter-btn:hover {
+    background: #009906;
+}
+
+.payment-section h4 {
+    color: white;
+    /* Payment Accept white? or Green? Screenshot looks Green */
+    color: #00b207;
+    font-size: 16px;
+    margin-bottom: 16px;
+}
+
+.payment-icons-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.payment-icons-row img {
+    height: 24px;
+    background: white;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .site-footer {
+        padding: 40px 20px 20px;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 30px;
+    }
+
+    .footer-section.left-links {
+        width: 100%;
+    }
+
+    .footer-menu {
+        align-items: center;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .footer-section.center-brand {
+        order: -1;
+    }
+
+    .newsletter-input-group {
+        flex-direction: column;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .newsletter-btn {
+        width: 100%;
+    }
+}

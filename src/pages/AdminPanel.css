@@ -707,6 +707,13 @@ tr:hover td {
   border-color: #cfd8dc;
 }
 
+.admin-bell-btn img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
 .admin-bell-icon {
   font-size: 18px;
 }

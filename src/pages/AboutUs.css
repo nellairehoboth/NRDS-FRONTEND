@@ -13,7 +13,8 @@
 }
 
 .about-container {
-  max-width: 900px;
+  max-width: 1000px;
+  /* Increased from 900px */
   width: 100%;
 }
 
@@ -40,8 +41,10 @@
 
 .about-hero {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
+  grid-template-columns: 350px 1fr;
+  /* Increased from 240px */
+  gap: 30px;
+  /* Increased from 20px */
   background: #f6faf6;
   padding: 18px;
   border-radius: 14px;
@@ -56,7 +59,8 @@
 
 .about-hero-image {
   width: 100%;
-  height: 260px;
+  height: 400px;
+  /* Increased from 260px */
   object-fit: cover;
 }
 

@@ -29,13 +29,19 @@ const AuthSuccess = () => {
         // Create user object from token payload
         const user = {
           _id: payload.userId,
+          name: payload.name,
           email: payload.email,
           role: payload.role,
-          credits: payload.credits
+          credits: payload.credits,
+          avatar: payload.avatar
         };
 
+        // Check for temp_remember_me
+        const rememberMe = localStorage.getItem('temp_remember_me') === 'true';
+        localStorage.removeItem('temp_remember_me');
+
         // Login with the token and user data
-        await login(token, user);
+        await login(token, user, rememberMe);
 
         // Redirect to home page
         navigate('/');

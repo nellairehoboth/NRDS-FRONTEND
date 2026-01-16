@@ -12,11 +12,7 @@ const Orders = () => {
   const [actionMessage, setActionMessage] = useState('');
   const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = React.useCallback(async () => {
     try {
       const response = await api.get('/api/orders');
       setOrders(response.data.orders || []);
@@ -25,7 +21,11 @@ const Orders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleDelete = async (order) => {
     try {
@@ -144,25 +144,21 @@ const Orders = () => {
   return (
     <div className="orders-page">
       <div className="container">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <div className="orders-header-bar">
           <h1>{t('orders.title', 'My Orders')}</h1>
           {orders.length > 0 && (
-            <button className="btn" onClick={handleClearHistory} title={t('orders.clear_tooltip', 'Clear entire history')} style={{background:'#eee'}}>
+            <button className="clear-history-btn" onClick={handleClearHistory} title={t('orders.clear_tooltip', 'Clear entire history')}>
               {t('orders.clear', 'Clear History')}
             </button>
           )}
         </div>
+
         {actionMessage && (
-          <div style={{
-            margin: '12px 0',
-            padding: '10px 12px',
-            background: '#f5f5f5',
-            borderRadius: 6,
-            color: '#333'
-          }}>
+          <div className="action-message" style={{ margin: '20px 0', padding: '15px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', color: '#1e293b', fontWeight: '600' }}>
             {actionMessage}
           </div>
         )}
+
         <div className="orders-list">
           {orders.map((order) => (
             <div key={order._id} className="order-card">
@@ -172,7 +168,7 @@ const Orders = () => {
                   <p>{t('orders.placed_on', 'Placed on')} {new Date(order.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="order-status">
-                  <span 
+                  <span
                     className="status-badge"
                     style={{ backgroundColor: getStatusColor(order.status) }}
                   >
@@ -180,46 +176,53 @@ const Orders = () => {
                   </span>
                 </div>
               </div>
-              
-              <div className="order-items">
-                {order.items.map((item, index) => (
-                  <div key={index} className="order-item">
-                    <span>{(lang === 'ta' && (item?.product?.nameTa || item?.nameTa)) ? (item?.product?.nameTa || item?.nameTa) : item.name} x {item.quantity}</span>
-                    <span>₹{item.subtotal}</span>
+
+              <div className="order-body">
+                <div className="order-items">
+                  {order.items.map((item, index) => (
+                    <div key={index} className="order-item">
+                      <span>{(lang === 'ta' && (item?.product?.nameTa || item?.nameTa)) ? (item?.product?.nameTa || item?.nameTa) : item.name} x {item.quantity}</span>
+                      <span>₹{item.subtotal}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="order-card-footer">
+                  <div className="order-stats">
+                    <div className="order-total-price">
+                      {t('orders.total', 'Total:')} ₹{order.totalAmount}
+                    </div>
+                    <div className="order-payment-info">
+                      {t('orders.payment', 'Payment:')} {order.paymentMethod.toUpperCase()}
+                      <span className={`payment-status-pill ${order.paymentStatus}`}>
+                        {order.paymentStatus}
+                      </span>
+                    </div>
                   </div>
-                ))}
-              </div>
-              
-              <div className="order-footer">
-                <div className="order-total">
-                  <strong>{t('orders.total', 'Total:')} ₹{order.totalAmount}</strong>
-                </div>
-                <div className="order-payment">
-                  <span>{t('orders.payment', 'Payment:')} {order.paymentMethod.toUpperCase()}</span>
-                  <span className={`payment-status ${order.paymentStatus}`}>
-                    {order.paymentStatus}
-                  </span>
-                </div>
-                <div style={{display:'flex', gap:8}}>
-                  <Link className="btn" to={`/orders/${order._id}`}>{t('orders.view_details', 'View Details')}</Link>
-                  {['CREATED', 'PAYMENT_PENDING', 'pending'].includes(order.status) && (
+
+                  <div className="order-actions">
+                    <Link className="view-details-btn" to={`/orders/${order._id}`}>
+                      {t('orders.view_details', 'View Details')}
+                    </Link>
+
+                    {['CREATED', 'PAYMENT_PENDING', 'pending'].includes(order.status) && (
+                      <button
+                        className="cancel-order-btn"
+                        onClick={() => handleCancel(order)}
+                        disabled={cancelingId === order._id}
+                      >
+                        {cancelingId === order._id ? t('orders.cancelling', 'Cancelling...') : t('orders.cancel', 'Cancel Order')}
+                      </button>
+                    )}
+
                     <button
-                      className="btn"
-                      onClick={() => handleCancel(order)}
-                      disabled={cancelingId === order._id}
-                      style={{ background:'#f44336', color:'#fff' }}
+                      className="delete-order-btn"
+                      onClick={() => handleDelete(order)}
+                      disabled={deletingId === order._id}
                     >
-                      {cancelingId === order._id ? t('orders.cancelling', 'Cancelling...') : t('orders.cancel', 'Cancel Order')}
+                      {deletingId === order._id ? t('orders.removing', 'Removing...') : t('orders.delete', 'Delete')}
                     </button>
-                  )}
-                  <button
-                    className="btn"
-                    onClick={() => handleDelete(order)}
-                    disabled={deletingId === order._id}
-                    style={{ background:'#e0e0e0', color:'#333' }}
-                  >
-                    {deletingId === order._id ? t('orders.removing', 'Removing...') : t('orders.delete', 'Delete')}
-                  </button>
+                  </div>
                 </div>
               </div>
             </div>

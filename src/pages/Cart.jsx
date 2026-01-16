@@ -171,10 +171,16 @@ const Cart = () => {
 
             <Link
               to={hasUnavailableItems ? '#' : "/checkout"}
-              className={`btn btn-primary checkout-btn ${hasUnavailableItems ? 'disabled' : ''}`}
+              className={`btn checkout-btn ${hasUnavailableItems ? 'disabled' : ''}`}
             >
               {t('cart.checkout', 'Proceed to Checkout')}
             </Link>
+
+            <div className="continue-shopping-link">
+              <Link to="/products">
+                {t('cart.continue_shopping', 'Continue Shopping')}
+              </Link>
+            </div>
           </div>
         </div>
       </div>

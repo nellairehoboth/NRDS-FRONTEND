@@ -5,6 +5,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
 import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
+import { handlePrintInvoice } from '../utils/invoiceUtils';
 
 const AdminPanel = () => {
   const { t } = useI18n();
@@ -20,6 +21,10 @@ const AdminPanel = () => {
   const [variantLabelFilter, setVariantLabelFilter] = useState('all');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const fileInputRef = useRef(null); // Ref for file input
+  const [uploading, setUploading] = useState(false); // State for upload status
+  const [fetchingImages, setFetchingImages] = useState(false); // State for auto-fetch
+  const [fetchProgress, setFetchProgress] = useState(''); // Text for progress
   const [unseenOrders, setUnseenOrders] = useState([]);
   const [lastSeenOrderTs, setLastSeenOrderTs] = useState(() => {
     const raw = localStorage.getItem('admin_last_seen_order_ts');
@@ -32,12 +37,12 @@ const AdminPanel = () => {
   });
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
-    name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', variants: [],
+    name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', secondaryImage: '', variants: [],
   });
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', isActive: true, variants: [],
+    name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', secondaryImage: '', isActive: true, variants: [],
   });
   const [settings, setSettings] = useState({
     deliveryChargePerKm: '0',
@@ -53,10 +58,26 @@ const AdminPanel = () => {
   const [isLocatingStore, setIsLocatingStore] = useState(false);
   const [showStoreMap, setShowStoreMap] = useState(false);
 
-  const CATEGORIES = [
-    'fruits', 'vegetables', 'dairy', 'bakery', 'meat',
-    'frozen', 'beverages', 'snacks', 'pantry', 'household'
-  ];
+  const [categories, setCategories] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProductsInternal] = useState(0);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/api/products/categories');
+      setCategories(response.data.categories || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+
+
 
   const UNITS = ['kg', 'g', 'lb', 'piece', 'liter', 'ml', 'pack', 'dozen'];
 
@@ -157,10 +178,17 @@ const AdminPanel = () => {
   }, [notifOpen]);
 
   useEffect(() => {
-    if (activeTab === 'products') fetchProducts();
-    else if (activeTab === 'orders') fetchOrders();
-    else if (activeTab === 'settings') fetchSettings();
-  }, [activeTab]);
+    if (activeTab === 'products') {
+      const delayDebounceFn = setTimeout(() => {
+        fetchProducts(1);
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    } else if (activeTab === 'orders') {
+      fetchOrders();
+    } else if (activeTab === 'settings') {
+      fetchSettings();
+    }
+  }, [productSearch, productCategoryFilter, productStockFilter, activeTab]);
 
   useEffect(() => {
     if (hasInitializedLastSeen) return;
@@ -187,19 +215,36 @@ const AdminPanel = () => {
           .slice(0, 10);
 
         if (alive) setUnseenOrders(interestingOnes);
-      } catch (e) { }
+      } catch (e) {
+        console.error('Initial settings fetch failed:', e);
+      }
     };
     poll();
     const id = setInterval(poll, 15000);
     return () => { alive = false; clearInterval(id); };
   }, [lastSeenOrderTs]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await api.get('/api/admin/products');
+      const response = await api.get('/api/admin/products', {
+        params: {
+          page,
+          limit: 50,
+          search: productSearch,
+          category: productCategoryFilter,
+          stock: productStockFilter
+        }
+      });
       setProducts(response.data.products || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      setTotalPages(response.data.totalPages || 1);
+      setCurrentPage(response.data.currentPage || 1);
+      setTotalProductsInternal(response.data.totalProducts || 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchOrders = async () => {
@@ -284,11 +329,13 @@ const AdminPanel = () => {
       if (variants.length === 0 && (!editForm.price || editForm.price <= 0)) {
         return alert('Please provide either a base price or add variants with prices.');
       }
-      const payload = { ...editForm, variants };
+      const images = [editForm.secondaryImage].filter(Boolean);
+      const payload = { ...editForm, variants, images };
       await api.put(`/api/admin/products/${editingProduct._id}`, payload);
       setEditingProduct(null);
       fetchProducts();
-    } catch (e) { alert(e.response?.data?.message || 'Failed to update product'); }
+      alert(t('admin.product_update_success', 'Product updated successfully!'));
+    } catch (e) { alert(e.response?.data?.message || t('admin.product_update_failed', 'Failed to update product')); }
     finally { setSavingEdit(false); }
   };
 
@@ -299,13 +346,17 @@ const AdminPanel = () => {
       if (variants.length === 0 && (!newProduct.price || newProduct.price <= 0)) {
         return alert('Please provide either a base price or add variants with prices.');
       }
-      const payload = { ...newProduct, variants };
+      const images = [newProduct.secondaryImage].filter(Boolean);
+      const payload = { ...newProduct, variants, images };
       await api.post('/api/admin/products', payload);
       setShowAddProduct(false);
-      setNewProduct({ name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', variants: [] });
+      setNewProduct({ name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', secondaryImage: '', variants: [] });
       fetchProducts();
-    } catch (e) { alert(e.response?.data?.message || 'Failed to add product'); }
+      alert(t('admin.product_add_success', 'Product added successfully!'));
+    } catch (e) { alert(e.response?.data?.message || t('admin.product_add_failed', 'Failed to add product')); }
   };
+
+
 
   const markOrdersSeen = () => {
     const latestTs = unseenOrders.reduce((acc, o) => Math.max(acc, new Date(o.updatedAt).getTime()), lastSeenOrderTs);
@@ -320,8 +371,32 @@ const AdminPanel = () => {
     try {
       await api.delete(`/api/admin/products/${id}`);
       fetchProducts();
+      alert(t('admin.delete_success', 'Product deleted successfully!'));
     } catch (e) { alert(t('admin.delete_failed', 'Failed to delete product')); }
   };
+
+  const handleDeleteAllProducts = async () => {
+    const confirmed = window.confirm('DANGER: This will delete ALL products from the database forever. Are you absolutely sure?');
+    if (!confirmed) return;
+
+    const secondConfirm = window.confirm('Are you REALLY sure? This cannot be undone.');
+    if (!secondConfirm) return;
+
+    try {
+      const response = await api.delete('/api/admin/products/delete-all');
+      if (response.data.success) {
+        alert(`Successfully deleted ${response.data.count} products.`);
+        fetchProducts();
+      }
+    } catch (err) {
+      console.error('Delete All Error:', err);
+      const status = err.response?.status;
+      const msg = err.response?.data?.message || err.message;
+      alert(`Error ${status || ''}: ${msg}`);
+    }
+  };
+
+
 
   const hasVariants = (vars) => Array.isArray(vars) && vars.length > 0;
   const variantLabelOptions = ['all', ...new Set(products.flatMap(p => (p.variants || []).map(v => String(v.label || '').trim())).filter(l => l !== ''))];
@@ -329,18 +404,14 @@ const AdminPanel = () => {
     setEditingProduct(product);
     setEditForm({
       ...product,
+      secondaryImage: product.images && product.images.length > 0 ? product.images[0] : '',
       variants: product.variants || [],
       taxInclusive: product.taxInclusive ?? true
     });
   };
 
-  const filteredProducts = products.filter(p => {
-    const q = productSearch.toLowerCase();
-    const matchesQuery = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
-    const matchesCategory = productCategoryFilter === 'all' || p.category === productCategoryFilter;
-    const matchesVariant = variantLabelFilter === 'all' || (p.variants || []).some(v => v.label === variantLabelFilter);
-    return matchesQuery && matchesCategory && matchesVariant;
-  });
+  // Since filtering is now on backend, we use 'products' directly but still keep the name for compatibility
+  const filteredProducts = products;
 
   return (
     <div className="admin-panel">
@@ -349,7 +420,7 @@ const AdminPanel = () => {
           <h1>{t('admin.title', 'Admin Panel')}</h1>
           <div className="admin-notifications">
             <button className="admin-bell-btn" onClick={() => setNotifOpen(!notifOpen)}>
-              🔔 {unseenOrders.length > 0 && <span className="admin-bell-badge">{unseenOrders.length}</span>}
+              <img src="https://cdn-icons-gif.flaticon.com/16104/16104401.gif" alt="" /> {unseenOrders.length > 0 && <span className="admin-bell-badge">{unseenOrders.length}</span>}
             </button>
             {loading && <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>Refreshing...</span>}
             {notifOpen && (
@@ -391,15 +462,108 @@ const AdminPanel = () => {
           <div className="products-management">
             <div className="section-header">
               <h2>{t('admin.products_mgmt', 'Products Management')}</h2>
-              {!editingProduct && (
-                <button
-                  onClick={() => setShowAddProduct(true)}
-                  className="btn btn-primary"
-                >
-                  {t('admin.add_product', 'Add Product')}
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {!editingProduct && (
+                  <>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv,.txt"
+                      style={{ display: 'none' }}
+                      ref={fileInputRef}
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        setUploading(true);
+                        try {
+                          const res = await api.post('/api/admin/products/bulk-upload', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                            timeout: 300000 // Increase timeout to 5 minutes for very large files
+                          });
+                          if (res.data.success) {
+                            alert(res.data.message);
+                            fetchProducts();
+                          } else {
+                            alert('Upload failed: ' + res.data.message);
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          alert('Upload error: ' + (err.response?.data?.message || err.message));
+                        } finally {
+                          setUploading(false);
+                          e.target.value = null; // Reset input
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current.click()}
+                      className="btn btn-secondary"
+                      disabled={uploading}
+                    >
+                      {uploading ? 'Uploading...' : 'Bulk Upload'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (fetchingImages) return;
+                        if (!window.confirm('This will search online images for products without one. It may take some time. Continue?')) return;
+                        setFetchingImages(true);
+                        setFetchProgress('Starting...');
+
+                        let totalProcessed = 0;
+                        let totalUpdated = 0;
+
+                        const runBatch = async () => {
+                          try {
+                            const res = await api.post('/api/admin/products/fetch-images', {}, { timeout: 60000 });
+                            if (res.data.success) {
+                              if (res.data.completed) {
+                                alert('Image fetch completed!');
+                                setFetchingImages(false);
+                                setFetchProgress('');
+                                fetchProducts();
+                              } else {
+                                totalProcessed += res.data.processed;
+                                totalUpdated += res.data.updated;
+                                setFetchProgress(`Processed: ${totalProcessed}, Updated: ${totalUpdated}, Remaining: ${res.data.remaining}`);
+                                // Continue next batch
+                                runBatch();
+                              }
+                            } else {
+                              alert('Fetch failed: ' + res.data.message);
+                              setFetchingImages(false);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+                            alert(`Fetch error: ${serverMsg}`);
+                            setFetchingImages(false);
+                          }
+                        };
+
+                        runBatch();
+                      }}
+                      className="btn btn-secondary"
+                      disabled={fetchingImages}
+                      style={{ backgroundColor: fetchingImages ? '#e0e0e0' : '', color: fetchingImages ? '#888' : '' }}
+                    >
+                      {fetchingImages ? (fetchProgress || 'Fetching...') : 'Auto-Fetch Images'}
+                    </button>
+                    <button
+                      onClick={() => setShowAddProduct(true)}
+                      className="btn btn-primary"
+                    >
+                      {t('admin.add_product', 'Add Product')}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
+
+
+
 
             {!editingProduct && (
               <div className="admin-product-filters">
@@ -428,16 +592,11 @@ const AdminPanel = () => {
                     className="admin-filter-select"
                   >
                     <option value="all">{t('admin.all_categories', 'All Categories')}</option>
-                    <option value="fruits">Fruits</option>
-                    <option value="vegetables">Vegetables</option>
-                    <option value="dairy">Dairy</option>
-                    <option value="meat">Meat</option>
-                    <option value="bakery">Bakery</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="snacks">Snacks</option>
-                    <option value="frozen">Frozen</option>
-                    <option value="pantry">Pantry</option>
-                    <option value="household">Household</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={productStockFilter}
@@ -462,7 +621,7 @@ const AdminPanel = () => {
                   </button>
                 </div>
                 <div className="admin-filter-meta">
-                  Showing <strong>{filteredProducts.length}</strong> of <strong>{products.length}</strong>
+                  Showing <strong>{products.length}</strong> of <strong>{totalProducts}</strong>
                 </div>
               </div>
             )}
@@ -518,16 +677,11 @@ const AdminPanel = () => {
                       value={editForm.category}
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                     >
-                      <option value="fruits">Fruits</option>
-                      <option value="vegetables">Vegetables</option>
-                      <option value="dairy">Dairy</option>
-                      <option value="meat">Meat</option>
-                      <option value="bakery">Bakery</option>
-                      <option value="beverages">Beverages</option>
-                      <option value="snacks">Snacks</option>
-                      <option value="frozen">Frozen</option>
-                      <option value="pantry">Pantry</option>
-                      <option value="household">Household</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </option>
+                      ))}
                     </select>
                     {!hasVariants(editForm.variants) && (
                       <input
@@ -558,9 +712,15 @@ const AdminPanel = () => {
                     />
                     <input
                       type="url"
-                      placeholder="Image URL"
+                      placeholder="Primary Image URL"
                       value={editForm.image}
                       onChange={(e) => setEditForm({ ...editForm, image: e.target.value })}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Hover (Secondary) Image URL"
+                      value={editForm.secondaryImage}
+                      onChange={(e) => setEditForm({ ...editForm, secondaryImage: e.target.value })}
                     />
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
@@ -782,9 +942,15 @@ const AdminPanel = () => {
                     />
                     <input
                       type="url"
-                      placeholder="Image URL"
+                      placeholder="Primary Image URL"
                       value={newProduct.image}
                       onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Hover (Secondary) Image URL"
+                      value={newProduct.secondaryImage}
+                      onChange={(e) => setNewProduct({ ...newProduct, secondaryImage: e.target.value })}
                     />
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <input
@@ -909,8 +1075,9 @@ const AdminPanel = () => {
 
             <div className="products-table">
               <table>
-                <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Image</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
+
                   {filteredProducts.map((product) => {
                     const selectedVariant = (() => {
                       if (variantLabelFilter === 'all') return null;
@@ -966,8 +1133,8 @@ const AdminPanel = () => {
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="btn" onClick={() => openEdit(product)}>Edit</button>
-                            <button className="btn btn-secondary" onClick={() => handleDeleteProduct(product._id)}>Delete</button>
+                            <button className="btn btn-sm btn-edit" onClick={() => openEdit(product)}>Edit</button>
+                            <button className="btn btn-sm btn-secondary" onClick={() => handleDeleteProduct(product._id)}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -975,6 +1142,29 @@ const AdminPanel = () => {
                   })}
                 </tbody>
               </table>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="admin-pagination">
+                  <button
+                    disabled={currentPage === 1 || loading}
+                    onClick={() => fetchProducts(currentPage - 1)}
+                    className="btn btn-secondary"
+                  >
+                    Previous
+                  </button>
+                  <span className="page-info">
+                    Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                  </span>
+                  <button
+                    disabled={currentPage === totalPages || loading}
+                    onClick={() => fetchProducts(currentPage + 1)}
+                    className="btn btn-secondary"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1112,7 +1302,7 @@ const AdminPanel = () => {
                       onClick={handleStoreLocate}
                       disabled={isLocatingStore}
                     >
-                      <img src="/gps-target-icon.png" alt="" style={{ width: '20px', height: '20px' }} /> Use Current Location
+                      <img src="https://cdn-icons-gif.flaticon.com/6844/6844595.gif" alt="" style={{ width: '20px', height: '20px', filter: 'invert(1) hue-rotate(180deg) brightness(1.2)', mixBlendMode: 'screen' }} /> Use Current Location
                     </button>
                     <button
                       type="button"
@@ -1168,8 +1358,24 @@ const AdminPanel = () => {
                 </div>
 
                 <button type="submit" className="btn btn-primary" disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save Settings'}</button>
+
+                <div className="settings-section" style={{ marginTop: '40px', borderTop: '1px solid #fee2e2', paddingTop: '20px' }}>
+                  <h4 style={{ color: '#dc2626', marginBottom: '10px' }}>🔥 Danger Zone</h4>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                    Once you delete all products, there is no going back. Please be certain.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ backgroundColor: '#dc2626', color: 'white', border: 'none' }}
+                    onClick={handleDeleteAllProducts}
+                  >
+                    Delete All Products
+                  </button>
+                </div>
               </div>
             </form>
+
           </div>
         )}
         {/* Add Product Modal */}
@@ -1187,7 +1393,7 @@ const AdminPanel = () => {
                       <input type="text" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} required />
                       <select value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
                         <option value="" disabled>Select Category</option>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                        {categories.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                       </select>
                       <select value={newProduct.unit} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
                         <option value="" disabled>Select Unit</option>
@@ -1196,7 +1402,8 @@ const AdminPanel = () => {
                       <input type="number" placeholder="Price (₹)" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} required={newProduct.variants.length === 0} />
                       <input type="number" placeholder="MRP (₹)" value={newProduct.mrp} onChange={e => setNewProduct({ ...newProduct, mrp: e.target.value })} />
                       <input type="number" placeholder="Stock" value={newProduct.stock} onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })} required={newProduct.variants.length === 0} />
-                      <input type="text" placeholder="Image URL" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                      <input type="text" placeholder="Primary Image URL" value={newProduct.image} onChange={e => setNewProduct({ ...newProduct, image: e.target.value })} />
+                      <input type="text" placeholder="Hover (Secondary) Image URL" value={newProduct.secondaryImage} onChange={e => setNewProduct({ ...newProduct, secondaryImage: e.target.value })} />
                       <textarea placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
                     </div>
                     {/* Variants Section for New Product */}
@@ -1238,7 +1445,7 @@ const AdminPanel = () => {
                       <input type="text" placeholder="Product Name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
                       <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
                         <option value="" disabled>Select Category</option>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                        {categories.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                       </select>
                       <select value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })} required className="admin-filter-select" style={{ width: '100%' }}>
                         <option value="" disabled>Select Unit</option>
@@ -1247,7 +1454,8 @@ const AdminPanel = () => {
                       <input type="number" placeholder="Price (₹)" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} required={editForm.variants.length === 0} />
                       <input type="number" placeholder="MRP (₹)" value={editForm.mrp} onChange={e => setEditForm({ ...editForm, mrp: e.target.value })} />
                       <input type="number" placeholder="Stock" value={editForm.stock} onChange={e => setEditForm({ ...editForm, stock: e.target.value })} required={editForm.variants.length === 0} />
-                      <input type="text" placeholder="Image URL" value={editForm.image} onChange={e => setEditForm({ ...editForm, image: e.target.value })} />
+                      <input type="text" placeholder="Primary Image URL" value={editForm.image} onChange={e => setEditForm({ ...editForm, image: e.target.value })} />
+                      <input type="text" placeholder="Hover (Secondary) Image URL" value={editForm.secondaryImage} onChange={e => setEditForm({ ...editForm, secondaryImage: e.target.value })} />
                       <textarea placeholder="Description" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}></textarea>
                     </div>
                     {/* Variants Section for Edit Product */}
@@ -1343,6 +1551,14 @@ const AdminPanel = () => {
                       🗺️ View Delivery Route
                     </button>
                   )}
+
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', marginTop: '10px', background: '#2c5530' }}
+                    onClick={() => handlePrintInvoice(orderDetail)}
+                  >
+                    🖨️ Print Invoice
+                  </button>
                 </div>
               </div>
             </div>

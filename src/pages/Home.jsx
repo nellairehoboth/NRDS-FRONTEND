@@ -4,233 +4,197 @@ import ProductCard from '../components/ProductCard';
 import api from '../api/axios';
 import './Home.css';
 import { useI18n } from '../contexts/I18nContext';
-import { handleImageError } from '../utils/imageUtils';
 
 const Home = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const carouselImages = [
-    'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzvZlsFbisDSev-EBQDhF9qkV8kJY3DLxyi3MvENJGfbg_qEH58_LjD-0ysAd4fMM4eaVYuweZaPwXFmj0-9crDBfKa0EipMG6F9bmgf_3_eBrBwyMbXG26RV4RDQ_suPU5rPtOgBfKA8s=s1360-w1360-h1020-rw',
-    'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwZ6szdRfdeO2EvksPKckPWq_urDpIPKAptlScmpSZYXffORdEVUJmucp5aXRir1BAOlAesI4mw5gAoGIbS-zUsZqCjb5Z7hh0bK4iT7RtyxGO05Gk6oL_l1vYr81YBe-3Wx1h2=s1360-w1360-h1020-rw',
-    'https://tse4.mm.bing.net/th/id/OIP.RTVvaoBK2fkgBuxVfHIiIAHaDt?cb=ucfimg2&ucfimg=1&rs=1&pid=ImgDetMain&o=7&rm=3'
-  ];
-  const [slide, setSlide] = useState(0);
+  const scrollRef = React.useRef(null);
+
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    fetchFeaturedProducts();
+    const fetchCategories = async () => {
+      try {
+        const response = await api.get('/api/products/categories');
+        if (response.data.success && response.data.categories) {
+          const allCats = response.data.categories;
+
+          // Target categories with their specific images
+          const targets = [
+            { key: 'vegetable', img: 'https://cdn-icons-gif.flaticon.com/15547/15547209.gif' },
+            { key: 'coffee', img: 'https://cdn-icons-gif.flaticon.com/18499/18499084.gif' },
+            { key: 'chips', img: 'https://cdn-icons-gif.flaticon.com/15240/15240128.gif' },
+            { key: 'chocolate', img: 'https://cdn-icons-gif.flaticon.com/15240/15240153.gif' },
+            { key: 'cake', img: 'https://cdn-icons-gif.flaticon.com/18545/18545045.gif' },
+            { key: 'oil', img: 'https://cdn-icons-gif.flaticon.com/15547/15547184.gif' },
+            { key: 'biscuits', img: 'https://cdn-icons-gif.flaticon.com/17507/17507052.gif' },
+            { key: 'shampoo', img: 'https://cdn-icons-gif.flaticon.com/17695/17695858.gif' },
+            { key: 'tea', img: 'https://cdn-icons-gif.flaticon.com/13373/13373331.gif' },
+            { key: 'rice', img: 'https://cdn-icons-gif.flaticon.com/12277/12277932.gif' }
+          ];
+
+          const mappedCategories = targets.map(t => {
+            const match = allCats.find(c => c.toLowerCase().includes(t.key));
+            if (match) {
+              return {
+                id: match, // The actual category name from DB
+                name: match.charAt(0).toUpperCase() + match.slice(1),
+                img: t.img
+              };
+            }
+            return null;
+          }).filter(Boolean);
+
+          setCategories(mappedCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
-  useEffect(() => {
-    if (!carouselImages.length) return;
-    const id = setInterval(() => {
-      setSlide((s) => (s + 1) % carouselImages.length);
-    }, 4000);
-    return () => clearInterval(id);
-  }, [carouselImages.length]);
 
-  const fetchFeaturedProducts = async () => {
-    try {
-      const response = await api.get('/api/products?limit=8&featured=true');
-      setFeaturedProducts(response.data.products || []);
-    } catch (error) {
-      console.error('Error fetching featured products:', error);
-    } finally {
-      setLoading(false);
+  const handleWheel = (e) => {
+    if (scrollRef.current) {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // Allow natural horizontal scroll
+      e.preventDefault();
+      scrollRef.current.scrollLeft += e.deltaY;
     }
   };
 
-  // Function to handle home page redirect (removed unused quick shop)
 
-  const categories = [
-    'fruits', 'vegetables', 'dairy', 'meat', 'bakery',
-    'beverages', 'snacks', 'frozen', 'pantry', 'household'
-  ];
 
-  const handleShopNow = () => {
-    if (selectedCategory) {
-      navigate(`/products?category=${encodeURIComponent(selectedCategory)}`);
-    } else {
-      navigate('/products');
-    }
-  };
-
-  // Removed unused handleGoToOrders
 
   return (
     <div className="home">
-      {/* Hero Section (Modern) */}
-      <section className="hero hero-modern">
-        <div className="container hero-grid">
-          <div className="hero-left">
-            <div className="hero-badge">📍 {t('home.badge', 'Grocery Delivery Service')}</div>
-            <h1 className="hero-title">
-              {t('home.title_part1', 'Get')} <span className="accent">{t('home.title_accent', 'fresh Grocery')}</span><br />
-              {t('home.title_part2', 'Enjoy healthy life.')}
-            </h1>
-            <p className="hero-subtitle">
-              {t('home.subtitle', 'Your daily needs delivered fast. Discover fresh produce, essentials, and more.')}
-            </p>
-            <div className="hero-controls">
-              <select
-                className="category-select"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="">{t('home.select_category', 'Select Category')}</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </select>
-              <button className="btn btn-primary shop-now" onClick={handleShopNow}>{t('home.shop_now', 'Shop Now')}</button>
+      {/* Hero Section (2-Column Banners) */}
+      <section className="hero-dual-banner">
+        <div className="container-wide hero-grid-2">
+
+          {/* Left Banner: Vegetables (Teal) */}
+          <div className="hero-banner bg-teal-light">
+            <div className="hero-text">
+              <h2>Tasty Vegetables<br />from Farm Vendors</h2>
+              <p className="hero-sub">Every Fridays Check<br />Best Market Deals!</p>
+              <button className="btn-hero-orange" onClick={() => navigate('/products?category=vegetables')}>Shop Now</button>
             </div>
+            <img
+              src="https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=600&auto=format&fit=crop"
+              alt="Vegetables in Crate"
+              className="hero-img-crate"
+            />
           </div>
 
-          <div className="hero-right">
-            <div className="hero-carousel">
-              <div className="carousel-inner">
-                {carouselImages.map((src, idx) => (
-                  <div key={idx} className={`carousel-slide ${slide === idx ? 'active' : ''}`}>
-                    <img
-                      className="carousel-img"
-                      src={src}
-                      alt={t('home.carousel_alt', 'store showcase')}
-                      referrerPolicy="no-referrer"
-                      onError={(e) => handleImageError(e, '/grocery-hero.svg')}
-                    />
+          {/* Right Banner: Fruits (Orange) */}
+          <div className="hero-banner bg-orange-pastel">
+            <div className="hero-text">
+              <h2>Delicious Fruits<br />from Farm Vendors</h2>
+              <p className="hero-sub">Fresh & Non GMO<br />Sweet Fruits</p>
+              <button className="btn-hero-orange" onClick={() => navigate('/products?category=fruits')}>Shop Now</button>
+            </div>
+            <img
+              src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=600&auto=format&fit=crop"
+              alt="Fruits in Crate"
+              className="hero-img-crate"
+            />
+          </div>
+
+        </div>
+      </section>
+
+      <section className="category-section">
+        <div className="container">
+          <div className="section-header-center">
+            <h2>{t('home.browse_category', 'Categories')}</h2>
+          </div>
+
+          <div
+            className="category-train-container"
+            ref={scrollRef}
+            onWheel={handleWheel}
+          >
+            <div className="category-grid-featured">
+              {categories.map((cat, index) => (
+                <div
+                  key={index}
+                  className="category-item"
+                  onClick={() => navigate(`/products?category=${cat.id}`)}
+                >
+                  <div className="cat-image-wrapper">
+                    <img src={cat.img} alt={cat.name} className="cat-img-3d" />
                   </div>
-                ))}
-              </div>
-              <button className="carousel-arrow left" aria-label={t('home.prev', 'Previous')} onClick={() => setSlide((slide - 1 + carouselImages.length) % carouselImages.length)}>
-                ‹
-              </button>
-              <button className="carousel-arrow right" aria-label={t('home.next', 'Next')} onClick={() => setSlide((slide + 1) % carouselImages.length)}>
-                ›
-              </button>
-              <div className="carousel-dots">
-                {carouselImages.map((_, i) => (
-                  <button
-                    key={i}
-                    className={`dot ${i === slide ? 'active' : ''}`}
-                    aria-label={`${t('home.go_to_slide', 'Go to slide')} ${i + 1}`}
-                    onClick={() => setSlide(i)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="features">
-        <div className="container">
-          <h2>{t('home.why_title', 'Why Choose Nellai Rehoboth Department Store?')}</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">🎤</div>
-              <h3>{t('home.voice_title', 'Voice Ordering')}</h3>
-              <p>{t('home.voice_desc', 'Simply speak to add items to your cart. No typing required!')}</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🚚</div>
-              <h3>{t('home.delivery_title', 'Fast Delivery')}</h3>
-              <p>{t('home.delivery_desc', 'Get your groceries delivered fresh to your doorstep.')}</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">💳</div>
-              <h3>{t('home.payment_title', 'Multiple Payment Options')}</h3>
-              <p>{t('home.payment_desc', 'Pay with card, digital wallets, or cash on delivery.')}</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🔒</div>
-              <h3>{t('home.secure_title', 'Secure & Safe')}</h3>
-              <p>{t('home.secure_desc', 'Your data and payments are protected with top-level security.')}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Products */}
-      <section className="featured-products">
-        <div className="container">
-          <h2>{t('home.featured_title', 'Featured Products')}</h2>
-          {loading ? (
-            <div className="loading-grid">
-              {[...Array(8)].map((_, index) => (
-                <div key={index} className="product-skeleton"></div>
-              ))}
-            </div>
-          ) : (
-            <div className="products-grid">
-              {featuredProducts.map(product => (
-                <ProductCard key={product._id} product={product} />
-              ))}
-            </div>
-          )}
-          <div className="text-center">
-            <Link to="/products" className="btn btn-outline">
-              {t('home.view_all', 'View All Products')}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-
-      <footer className="site-footer">
-        <div className="container footer-grid">
-          <div className="footer-col">
-            <h4>{t('home.footer.about', 'About')}</h4>
-            <ul className="footer-links">
-              <li><Link to="/AboutUs">{t('home.footer.about_us', 'About Us')}</Link></li>
-              <li><a href="/news">{t('home.footer.in_news', 'In News')}</a></li>
-              <li><a href="/sustainability">{t('home.footer.sustainability', 'Sustainability')}</a></li>
-              <li><a href="/privacy">{t('home.footer.privacy', 'Privacy Policy')}</a></li>
-              <li><a href="/terms">{t('home.footer.terms', 'Terms & Conditions')}</a></li>
-            </ul>
-          </div>
-          <div className="footer-col">
-            <h4>{t('home.footer.help', 'Help')}</h4>
-            <ul className="footer-links">
-              <li><a href="/faqs">{t('home.footer.faqs', 'FAQs')}</a></li>
-              <li><a href="/contact">{t('home.footer.contact', 'Contact Us')}</a></li>
-              <li><a href="/payments">{t('home.footer.payments', 'Payments')}</a></li>
-              <li><a href="/shipping">{t('home.footer.shipping', 'Shipping')}</a></li>
-              <li><a href="/returns">{t('home.footer.returns', 'Returns')}</a></li>
-            </ul>
-          </div>
-          <div className="footer-col footer-brand">
-            <div className="brand-mark">{t('brand.name', 'Nellai Rehoboth Department Store')}</div>
-            <div className="app-badges">
-              <a href="https://play.google.com/" target="_blank" rel="noreferrer" className="badge">{t('home.footer.play', 'Get it on Google Play')}</a>
-              <a href="https://www.apple.com/app-store/" target="_blank" rel="noreferrer" className="badge">{t('home.footer.app_store', 'Download on the App Store')}</a>
-            </div>
-            <div className="contact-rows">
-              <div className="footer-item"><span className="footer-label">{t('home.footer.phone', 'Phone:')}</span><a href="tel:+919942075849">+91 99420 75849</a></div>
-              <div className="footer-item"><span className="footer-label">{t('home.footer.email', 'Email:')}</span><a href="mailto:nellairehoboth@gmail.com">nellairehoboth@gmail.com</a></div>
-              <div className="footer-item location">
-                <span className="footer-label">{t('home.footer.location', 'Location:')}</span>
-                <div className="location-container">
-                  <span>8H22+QJ9, Perundurai-Thudupathi-Thingalur Rd, SMB Nagar, Thuduppathi, Tamil Nadu 638057</span>
-                  <a
-                    href="https://www.google.com/maps?sca_esv=e53f428efd45d366&kgmid=/g/11cnb253y8&shndl=30&shem=damc,lcuae,ptotplc,uaasie,shrtsdl&kgs=40bbb6bc68e47db0&um=1&ie=UTF-8&fb=1&gl=in&sa=X&geocode=KQcDD3LXEqk7Ma1SP4WyH9Md&daddr=8H22%2BQJ9,+Perundurai-Thudupathi-Thingalur+Rd,+SMB+Nagar,+Thuduppathi,+Tamil+Nadu+638057"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="map-link"
-                    title={t('home.footer.view_map', 'View on Google Maps')}
-                  >
-                    <i className="map-icon">📍</i> {t('home.footer.view_on_map', 'View on Map')}
-                  </a>
+                  <h3 className="cat-label">{cat.name}</h3>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Promotional Banners Section (3-Column Layout) */}
+      <section className="promo-banners">
+        <div className="container promo-grid-3">
+          {/* Banner 1: Seafood (Green Theme) */}
+          {/* Banner 1: Bakery (Green Theme) */}
+          <div className="promo-card-modern bg-green-soft">
+            <div className="promo-text-modern">
+              <h3>Bakery Freshness<br />Everyday!</h3>
+              <button
+                className="btn-shop-modern"
+                onClick={() => navigate('/products?category=Cake')}
+              >
+                Shop Now
+              </button>
+            </div>
+            <img
+              src="https://cakewhiz.com/wp-content/uploads/2020/02/Kids-Chocolate-Birthday-Cake-Recipe.jpg"
+              alt="Fresh Bakery"
+              className="promo-img-modern"
+            />
+          </div>
+
+          {/* Banner 2: Chocolate (Orange Theme) */}
+          <div className="promo-card-modern bg-orange-soft">
+            <div className="promo-text-modern">
+              <h3>Rich<br />Chocolates</h3>
+              <button
+                className="btn-shop-modern"
+                onClick={() => navigate('/products?category=Chocolate')}
+              >
+                Shop Now
+              </button>
+            </div>
+            <img
+              src="https://royceindia.com/cdn/shop/files/ChocolateBarBlack_1.webp?v=1705398052&width=900"
+              alt="Rich Chocolates"
+              className="promo-img-modern"
+            />
+          </div>
+
+          {/* Banner 3: Coffee (Blue Theme) */}
+          <div className="promo-card-modern bg-blue-soft">
+            <div className="promo-text-modern">
+              <h3>Aromatic<br />Coffee</h3>
+              <button
+                className="btn-shop-modern"
+                onClick={() => navigate('/products?category=Instant Coffee')}
+              >
+                Shop Now
+              </button>
+            </div>
+            <img
+              src="https://media-cldnry.s-nbcnews.com/image/upload/newscms/2019_33/2203981/171026-better-coffee-boost-se-329p.jpg"
+              alt="Aromatic Coffee"
+              className="promo-img-modern"
+            />
+          </div>
+        </div>
+      </section>
+
+
 
     </div>
   );

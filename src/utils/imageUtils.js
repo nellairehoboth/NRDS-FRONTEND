@@ -21,3 +21,10 @@ export const handleImageError = (e, fallback = '/placeholder-product.svg') => {
         e.target.src = fallback;
     }
 };
+
+export const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http') || avatar.startsWith('data:')) return avatar;
+    const baseUrl = process.env.REACT_APP_API_IMAGE_URL || 'http://localhost:5000';
+    return `${baseUrl}${avatar}`;
+};

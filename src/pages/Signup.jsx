@@ -27,6 +27,8 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1); // Multi-step form
 
+  const [rememberMe, setRememberMe] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -94,7 +96,7 @@ const Signup = () => {
       const response = await api.post('/api/auth/signup', formData);
 
       if (response.data.success) {
-        await login(response.data.token, response.data.user);
+        await login(response.data.token, response.data.user, rememberMe);
         navigate('/');
       } else {
         setError(response.data.message || t('auth.signup.failed', 'Signup failed'));
@@ -108,8 +110,10 @@ const Signup = () => {
   };
 
   const handleGoogleSignup = () => {
+    // Save rememberMe preference before redirecting
+    localStorage.setItem('temp_remember_me', rememberMe);
     // Redirect to backend Google OAuth endpoint
-    const baseUrl = process.env.REACT_APP_API_URL || 'https://nrds-backend.onrender.com';
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     window.location.href = `${baseUrl}/api/auth/google`;
   };
 
@@ -187,6 +191,17 @@ const Signup = () => {
                       placeholder={t('auth.confirm_password_ph', 'Confirm your password')}
                       className="form-input"
                     />
+                  </div>
+
+                  <div className="form-options">
+                    <label className="remember-me">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                      />
+                      <span>{t('auth.remember_me', 'Remember Me')}</span>
+                    </label>
                   </div>
 
                   <button
@@ -315,14 +330,14 @@ const Signup = () => {
               className="google-signup-btn"
               disabled={loading}
             >
-              <img src="/google-icon.svg" alt="Google" className="google-icon" />
+              <img src="https://img.icons8.com/?size=96&id=17949&format=png" alt="Google" className="google-icon" />
               {t('auth.signup_with_google', 'Sign up with Google')}
             </button>
 
             <div className="login-link">
               <p>
                 {t('auth.signup.has_account', 'Already have an account?')}
-                <Link to="/login"> {t('auth.login.here', 'Sign in here')}</Link>
+                <Link to="/login"> {t('auth.login.here', 'Login here')}</Link>
               </p>
             </div>
           </div>

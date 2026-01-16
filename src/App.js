@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { I18nProvider } from './contexts/I18nContext';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import Products from './pages/Products';
 import Cart from './pages/Cart';
@@ -15,6 +16,7 @@ import Signup from './pages/Signup';
 import OrderDetails from './pages/OrderDetails';
 import AuthSuccess from './pages/AuthSuccess';
 import AboutUs from './pages/AboutUs';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -34,7 +36,7 @@ function App() {
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/auth/success" element={<AuthSuccess />} />
                   <Route path="/products" element={<Products />} />
-                  <Route path="/AboutUs" element={<AboutUs />} />
+                  <Route path="/about" element={<AboutUs />} />
                   <Route path="/cart" element={
                     <ProtectedRoute>
                       <Cart />
@@ -60,8 +62,14 @@ function App() {
                       <AdminPanel />
                     </ProtectedRoute>
                   } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } />
                 </Routes>
               </main>
+              <Footer />
             </div>
           </Router>
         </I18nProvider>

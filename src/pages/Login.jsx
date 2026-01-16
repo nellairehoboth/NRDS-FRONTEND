@@ -16,6 +16,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [rememberMe, setRememberMe] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -48,7 +50,7 @@ const Login = () => {
       const response = await api.post('/api/auth/login', formData);
 
       if (response.data.success) {
-        await login(response.data.token, response.data.user);
+        await login(response.data.token, response.data.user, rememberMe);
         navigate('/');
       } else {
         setError(response.data.message || t('auth.login.failed', 'Login failed'));
@@ -62,8 +64,10 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
+    // Save rememberMe preference before redirecting
+    localStorage.setItem('temp_remember_me', rememberMe);
     // Redirect to backend Google OAuth endpoint
-    const baseUrl = process.env.REACT_APP_API_URL || 'https://nrds-backend.onrender.com';
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     window.location.href = `${baseUrl}/api/auth/google`;
   };
 
@@ -75,7 +79,7 @@ const Login = () => {
         <div className="login-card">
           <div className="login-header">
             <h1>{t('auth.login.title', 'Welcome Back!')}</h1>
-            <p>{t('auth.login.subtitle', 'Sign in to your account')}</p>
+            <p>{t('auth.login.subtitle', 'Login to your account')}</p>
           </div>
 
           <div className="login-content">
@@ -114,6 +118,17 @@ const Login = () => {
                 />
               </div>
 
+              <div className="form-options">
+                <label className="remember-me">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span>{t('auth.remember_me', 'Remember Me')}</span>
+                </label>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -128,7 +143,7 @@ const Login = () => {
               className="google-login-btn"
               disabled={loading}
             >
-              <img src="/google-icon.svg" alt="Google" className="google-icon" />
+              <img src="https://img.icons8.com/?size=96&id=17949&format=png" alt="Google" className="google-icon" />
               {t('auth.continue_google', 'Continue with Google')}
             </button>
 

@@ -203,7 +203,9 @@
 
 .location-btn-text-floating {
     position: absolute;
-    right: 55px;
+    right: 75px;
+    bottom: 228px;
+    /* Align with button */
     /* To the left of the button */
     background: white;
     padding: 6px 12px;
@@ -297,6 +299,23 @@
 }
 
 
+.map-error-floating {
+    position: absolute;
+    top: 160px;
+    right: 20px;
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-width: 250px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
@@ -319,7 +338,7 @@
 }
 
 /* Mobile Tweaks */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .map-modal-card {
         width: 100%;
         height: 100%;
@@ -327,8 +346,72 @@
         border-radius: 0;
     }
 
+    .map-modal-overlay {
+        padding: 0;
+    }
+
+    .map-floating-search {
+        left: 10px;
+        right: 100px;
+        top: 10px;
+    }
+
+    .map-search-input-floating {
+        height: 44px;
+        font-size: 16px;
+        /* Prevent zoom on iOS */
+    }
+
+    .map-floating-location-btn {
+        bottom: 240px;
+        right: 15px;
+    }
+
+    .location-btn-text-floating {
+        display: none;
+    }
+
     .map-bottom-sheet {
-        padding-bottom: 30px;
-        /* Safe area */
+        padding: 20px;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+    }
+
+    .address-details h4 {
+        font-size: 16px;
+    }
+
+    .address-details p {
+        font-size: 12px;
+    }
+
+    .map-confirm-btn-floating {
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    .map-error-floating {
+        top: 70px;
+        /* Below search bar on mobile */
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-floating-search {
+        right: 60px;
+    }
+
+    .map-close-btn-floating {
+        right: 10px;
+        top: 10px;
+    }
+
+    .map-toggle-btn-floating {
+        display: none;
     }
 }

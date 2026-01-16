@@ -1,19 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/axios';
-import { useNavigate } from 'react-router-dom';
-
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    if (document.getElementById('razorpay-checkout-js')) return resolve(true);
-    const script = document.createElement('script');
-    script.id = 'razorpay-checkout-js';
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
+import { loadRazorpayScript } from '../utils/razorpay';
+import './OrderDetails.css';
+import { useI18n } from '../contexts/I18nContext';
+import { handlePrintInvoice } from '../utils/invoiceUtils';
 
 const OrderDetails = () => {
   const { id } = useParams();
@@ -21,9 +12,9 @@ const OrderDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retrying, setRetrying] = useState(false);
-  const navigate = useNavigate();
+  const { lang } = useI18n();
   const currency = (n) => `₹${Number(n || 0).toFixed(2)}`;
-  const handlePrint = () => window.print();
+  const handlePrint = () => handlePrintInvoice(order);
 
   const handleRetryPayment = async () => {
     if (!order) return;
@@ -130,24 +121,31 @@ const OrderDetails = () => {
     if (id) fetchOrder();
   }, [id]);
 
-  // Thermal-only: ensure thermal mode class for print sizing
-  useEffect(() => {
-    document.body.classList.add('thermal-mode');
-    return () => document.body.classList.remove('thermal-mode');
-  }, []);
+  const getStatusColor = (status) => {
+    const colors = {
+      CREATED: '#64748b',
+      PAYMENT_PENDING: '#f59e0b',
+      PAID: '#22c55e',
+      ADMIN_CONFIRMED: '#3b82f6',
+      SHIPPED: '#8b5cf6',
+      DELIVERED: '#16a34a',
+      CANCELLED: '#ef4444'
+    };
+    return colors[status] || '#666';
+  };
 
-  if (loading) return <div className="container"><h2>Loading order...</h2></div>;
-  if (error) return <div className="container"><h2>{error}</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
-  if (!order) return <div className="container"><h2>Order not found</h2><Link to="/orders" className="btn">Back to Orders</Link></div>;
+  if (loading) return <div className="order-details-page"><div className="container"><h2>Loading order...</h2></div></div>;
+  if (error) return <div className="order-details-page"><div className="container"><h2>{error}</h2><Link to="/orders" className="back-btn">Back to Orders</Link></div></div>;
+  if (!order) return <div className="order-details-page"><div className="container"><h2>Order not found</h2><Link to="/orders" className="back-btn">Back to Orders</Link></div></div>;
 
   const isRestricted = ['PAYMENT_PENDING', 'CANCELLED', 'cancelled', 'pending'].includes(order.status) || order.paymentStatus === 'failed';
 
   if (isRestricted) {
     return (
       <div className="order-details-page">
-        <div className="container" style={{ textAlign: 'center', marginTop: '50px' }}>
-          <div className="print-container" style={{ padding: '40px' }}>
-            <h2 style={{ color: '#ef4444' }}>Invoice Restricted</h2>
+        <div className="container">
+          <div className="restricted-view">
+            <h2>Invoice Restricted</h2>
             <p>
               {order.status === 'CANCELLED' || order.status === 'cancelled'
                 ? 'This order has been cancelled. No invoice is available.'
@@ -155,19 +153,20 @@ const OrderDetails = () => {
                   ? 'Payment failed for this order. Please try again or contact support.'
                   : 'Invoices are only generated for successful orders.'}
             </p>
-            <p>Current Status: <strong>{order.status}</strong></p>
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <p style={{ marginTop: '10px' }}>Current Status: <span className="status-pill" style={{ backgroundColor: getStatusColor(order.status) }}>{order.status}</span></p>
+            <div className="restricted-actions">
               {(order.status === 'PAYMENT_PENDING' || order.status === 'pending') && (
                 <button
-                  className="btn btn-primary"
+                  className="retry-payment-btn"
                   onClick={handleRetryPayment}
                   disabled={retrying}
+                  style={{ width: 'auto' }}
                 >
                   {retrying ? 'Starting Payment...' : 'Retry Payment'}
                 </button>
               )}
-              <Link to="/orders" className="btn" style={{ background: '#eee', color: '#333' }}>Back to My Orders</Link>
-              <Link to="/" className="btn">Continue Shopping</Link>
+              <Link to="/orders" className="back-btn">Back to My Orders</Link>
+              <Link to="/products" className="back-btn" style={{ background: '#2c5530', color: 'white' }}>Continue Shopping</Link>
             </div>
           </div>
         </div>
@@ -222,232 +221,102 @@ const OrderDetails = () => {
 
   return (
     <div className="order-details-page">
-      <style>{`
-        @media print {
-          header, nav, footer, .btn, a, .no-print { display: none !important; }
-          .print-container { box-shadow: none !important; border: none !important; }
-          body { background: #fff; }
-          .standard-invoice { display: none !important; }
-          .thermal-receipt { display: block !important; }
-          @page { size: 80mm auto; margin: 0; }
-        }
-        /* Thermal receipt styles */
-        .thermal-receipt { display:block; width: 80mm; margin: 0 auto; padding: 6px 8px; background: #fff; color: #000; }
-        .thermal-receipt .t-center { text-align:center; }
-        .thermal-receipt .t-right { text-align:right; }
-        .thermal-receipt .t-left { text-align:left; }
-        .thermal-receipt .title { font-weight: 700; font-size: 16px; line-height: 1.2; }
-        .thermal-receipt .sub { font-size: 11px; }
-        .thermal-receipt .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
-        .thermal-receipt .row { display:flex; justify-content:space-between; }
-        .thermal-receipt .hr { border-top: 1px dashed #999; margin: 6px 0; }
-        .thermal-receipt table { width:100%; border-collapse:collapse; }
-        .thermal-receipt th, .thermal-receipt td { font-size:12px; padding: 2px 0; }
-        .thermal-receipt th { text-align:left; }
-        .thermal-receipt .tot-line { display:flex; justify-content:space-between; margin: 2px 0; }
-        .thermal-receipt .tot-title { font-weight:700; }
-        }
-        .invoice-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
-        .invoice-brand { font-weight:800; font-size:18px; }
-        .print-actions { display:flex; gap:8px; }
-        .print-container { background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-        .invoice-grid { display:grid; grid-template-columns: 1.2fr 0.8fr; gap:16px; }
-        .bill-table { width:100%; border-collapse:collapse; }
-        .bill-table th, .bill-table td { padding:10px; border-bottom:1px solid #f0f0f0; text-align:left; font-size: 12px; }
-        .bill-table th { background:#f8fafc; }
-        .totals { display:grid; gap:6px; }
-        .totals-row { display:flex; justify-content:space-between; }
-        .muted { color:#6b7280; }
-        .section-title { margin: 16px 0 8px; font-size: 16px; font-weight: 600; }
-      `}</style>
-      <div className="container">
-        <div className="invoice-header">
+      <div className="container order-details-container">
+        <div className="order-details-header">
           <div>
-            <h1 style={{ margin: '0 0 4px' }}>Tax Invoice</h1>
-            <div>Order #{order.orderNumber}</div>
-            <div style={{ color: '#6b7280' }}>Placed on {new Date(order.createdAt).toLocaleString()}</div>
+            <h1>Order Details</h1>
+            <div className="order-meta">
+              Order #{order.orderNumber} • {new Date(order.createdAt).toLocaleString()}
+            </div>
           </div>
-          <div className="print-actions no-print">
-            <button className="btn btn-primary" onClick={handlePrint}>Print</button>
-            <Link to="/orders" className="btn">Back to Orders</Link>
+          <div className="order-header-actions no-print">
+            <button className="print-btn" onClick={handlePrint}>
+              <span>🖨️</span> Print Invoice
+            </button>
+            <Link to="/orders" className="back-btn">Back to Orders</Link>
           </div>
         </div>
 
-        {/* STANDARD GST INVOICE (disabled for thermal-only) */}
-        <div className="print-container standard-invoice" style={{ marginTop: 16, display: 'none' }}>
-          <div className="invoice-grid">
-            <div>
-              <div className="invoice-brand">Nellai Rehoboth Department Store</div>
-              <div>8H22+QJ9, Perundurai-Thudupathi-Thingalur Rd</div>
-              <div>SMB Nagar, Thuduppathi, Tamil Nadu 638057, India</div>
-              <div>Phone: +91 99420 75849</div>
-              <div>GSTIN: <span className="muted">Please provide</span></div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div><strong>Status:</strong> {order.status}</div>
-              <div><strong>Payment:</strong> {order.paymentMethod?.toUpperCase()} — {order.paymentStatus}</div>
-              <div><strong>Invoice Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</div>
-            </div>
-          </div>
-
-          <h3 className="section-title">Items</h3>
-          <table className="bill-table">
-            <thead>
-              <tr>
-                <th style={{ width: '34%' }}>Item</th>
-                <th>HSN</th>
-                <th>Qty</th>
-                <th>Rate</th>
-                <th>GST %</th>
-                <th>Taxable</th>
-                {isIntraState ? <th>CGST</th> : <th>IGST</th>}
-                {isIntraState ? <th>SGST</th> : null}
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => {
-                const hsn = item.product?.tax?.hsn || '-';
-                return (
-                  <tr key={idx}>
-                    <td>{item.name}{item?.variantLabel ? ` (${item.variantLabel})` : ''}</td>
-                    <td>{hsn}</td>
-                    <td>{item.quantity}</td>
-                    <td>{currency(item.price)}</td>
-                    <td>{item.rate}%</td>
-                    <td>{currency(item.taxable)}</td>
-                    {isIntraState ? <td>{currency(item.cgst)}</td> : <td>{currency(item.igst)}</td>}
-                    {isIntraState ? <td>{currency(item.sgst)}</td> : null}
-                    <td>{currency(item.subtotal)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div className="invoice-grid" style={{ marginTop: 12 }}>
-            <div>
-              {order.shippingAddress && (
-                <div>
-                  <h3>Bill To</h3>
-                  <div className="print-container" style={{ padding: 12 }}>
-                    <div>{order.shippingAddress.name}</div>
-                    <div>{order.shippingAddress.street}</div>
-                    <div>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</div>
-                    <div>{order.shippingAddress.country}</div>
-                    {order.shippingAddress.phone && <div>Phone: {order.shippingAddress.phone}</div>}
-                    <div className="muted" style={{ marginTop: 6 }}>Place of Supply: {order.shippingAddress.state || '-'}</div>
+        <div className="order-details-grid">
+          <div className="details-main-content">
+            <div className="details-card">
+              <h3>📦 Order Items</h3>
+              <div className="items-list">
+                {items.map((item, idx) => (
+                  <div key={idx} className="order-item-row">
+                    <div className="item-info">
+                      <span className="item-name">{(lang === 'ta' && (item?.product?.nameTa || item?.nameTa)) ? (item?.product?.nameTa || item?.nameTa) : item.name} {item?.variantLabel ? ` (${item.variantLabel})` : ''}</span>
+                      <span className="item-secondary">{item.quantity} x {currency(item.price)} (GST {item.rate}%)</span>
+                    </div>
+                    <span className="item-price-total">{currency(item.subtotal)}</span>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="info-grid">
+              <div className="details-card">
+                <h3>📍 Shipping Address</h3>
+                <div className="address-details">
+                  <p><strong>{order.shippingAddress.name}</strong></p>
+                  <p>{order.shippingAddress.street}</p>
+                  <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</p>
+                  <p>{order.shippingAddress.country}</p>
+                  {order.shippingAddress.phone && <p><span className="label">Phone:</span><span className="value">{order.shippingAddress.phone}</span></p>}
                 </div>
-              )}
-              <div style={{ marginTop: 12 }}>
-                <h3>Bank & UPI</h3>
-                <div className="print-container" style={{ padding: 12 }}>
-                  <div><strong>Bank:</strong> <span className="muted">Provide Bank Name</span></div>
-                  <div><strong>Branch:</strong> <span className="muted">Provide Branch</span></div>
-                  <div><strong>Account No:</strong> <span className="muted">Provide Account</span></div>
-                  <div><strong>IFSC:</strong> <span className="muted">Provide IFSC</span></div>
-                  <div><strong>UPI ID:</strong> <span className="muted">Provide UPI</span></div>
+              </div>
+
+              <div className="details-card">
+                <h3>💳 Payment Information</h3>
+                <div className="payment-details">
+                  <p>
+                    <span className="label">Method:</span>
+                    <span className="value">{order.paymentMethod?.toUpperCase()}</span>
+                  </p>
+                  <p>
+                    <span className="label">Status:</span>
+                    <span className="status-pill" style={{ backgroundColor: order.paymentStatus === 'paid' ? '#22c55e' : '#f59e0b' }}>
+                      {order.paymentStatus}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="label">Order Status:</span>
+                    <span className="status-pill" style={{ backgroundColor: getStatusColor(order.status) }}>
+                      {order.status}
+                    </span>
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="totals">
-              <div className="totals-row"><span>Total Qty</span><strong>{totals.qty}</strong></div>
-              <div className="totals-row"><span>Taxable Value</span><strong>{currency(totals.taxable)}</strong></div>
-              {isIntraState ? (
-                <>
-                  <div className="totals-row"><span>CGST ({items[0]?.rate / 2 || 0}%)</span><strong>{currency(totals.cgst)}</strong></div>
-                  <div className="totals-row"><span>SGST ({items[0]?.rate / 2 || 0}%)</span><strong>{currency(totals.sgst)}</strong></div>
-                </>
-              ) : (
-                <div className="totals-row"><span>IGST ({items[0]?.rate || 0}%)</span><strong>{currency(totals.igst)}</strong></div>
-              )}
-              <div className="totals-row"><span>Tax Total</span><strong>{currency(totals.tax)}</strong></div>
-              <div className="totals-row"><span>Delivery Fee</span><strong>{currency(deliveryCharge)}</strong></div>
-              <div className="totals-row"><span>Grand Total</span><strong>{currency(grandTotal)}</strong></div>
-              <div className="totals-row"><span>Amount in Words</span><strong style={{ textAlign: 'right', maxWidth: 260 }}>{amountInWords(grandTotal)}</strong></div>
-            </div>
           </div>
 
-          <div style={{ marginTop: 16, color: '#6b7280' }}>
-            Declaration: Goods once sold will not be taken back. Subject to Erode jurisdiction.
-          </div>
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
-            <div className="muted">This is a computer generated invoice.</div>
-            <div style={{ textAlign: 'right' }}>
-              <div>For Nellai Rehoboth Department Store</div>
-              <div style={{ height: 40 }}></div>
-              <div>Authorised Signatory</div>
+          <div className="details-sidebar">
+            <div className="details-card summary-card">
+              <h3>🧾 Order Summary</h3>
+              <div className="summary-row">
+                <span>Subtotal</span>
+                <span>{currency(totals.subtotal)}</span>
+              </div>
+              <div className="summary-row">
+                <span>Tax Total</span>
+                <span>{currency(totals.tax)}</span>
+              </div>
+              <div className="summary-row">
+                <span>Delivery Fee</span>
+                <span>{deliveryCharge > 0 ? currency(deliveryCharge) : 'Free'}</span>
+              </div>
+              <div className="summary-row grand-total">
+                <span>Total</span>
+                <span>{currency(grandTotal)}</span>
+              </div>
+
+              <div style={{ marginTop: '20px', fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic' }}>
+                Amount in Words: {amountInWords(grandTotal)}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* THERMAL RECEIPT 80mm */}
-        <div className="thermal-receipt">
-          <div className="t-center">
-            <div className="title">நெல்லை ரெகோபோத்</div>
-            <div className="sub">டிபார்ட்மென்ட் ஸ்டோர், தமிழகத்தில்</div>
-          </div>
-          <div className="mono" style={{ marginTop: 4 }}>
-            BMOPP6722M1ZH, CELL 9942175849
-          </div>
-          <div className="mono" style={{ marginTop: 2 }}>
-            No: {order.orderNumber}  {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-          <div className="mono" style={{ marginTop: 2 }}>
-            Name : {order?.shippingAddress?.name || '-'}
-          </div>
-          <div className="hr" />
-          <table>
-            <thead>
-              <tr className="mono">
-                <th style={{ width: '55%' }}>PRODUCT NAME</th>
-                <th style={{ width: '10%' }}>QTY</th>
-                <th style={{ width: '15%' }}>RATE</th>
-                <th style={{ width: '20%', textAlign: 'right' }}>AMOUNT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it, i) => (
-                <tr key={i} className="mono">
-                  <td>{it.name}{it?.variantLabel ? ` (${it.variantLabel})` : ''}</td>
-                  <td>{it.quantity}</td>
-                  <td>{Number(it.price).toFixed(0)}</td>
-                  <td className="t-right">{Number(it.subtotal).toFixed(0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="hr" />
-          <div className="mono tot-line"><span>TOTAL Items-----&gt;</span><span>{totals.qty} {Number(grandTotal).toFixed(0)}</span></div>
-          <div className="mono tot-line"><span>No Of Items----&gt;</span><span>{items.length}</span></div>
-          <div className="hr" />
-          <div className="mono tot-line"><span>Taxable Value</span><span>{Number(totals.taxable).toFixed(2)}</span></div>
-          {isIntraState ? (
-            <>
-              <div className="mono tot-line"><span>CGST ({items[0]?.rate / 2 || 0}%)</span><span>{Number(totals.cgst).toFixed(2)}</span></div>
-              <div className="mono tot-line"><span>SGST ({items[0]?.rate / 2 || 0}%)</span><span>{Number(totals.sgst).toFixed(2)}</span></div>
-            </>
-          ) : (
-            <div className="mono tot-line"><span>IGST ({items[0]?.rate || 0}%)</span><span>{Number(totals.igst).toFixed(2)}</span></div>
-          )}
-          <div className="mono tot-line"><span>Tax Total</span><span>{Number(totals.tax).toFixed(2)}</span></div>
-          <div className="hr" />
-          <div className="mono tot-line"><span className="tot-title">TOTAL AMT :</span><span className="tot-title">{Number(grandTotal).toFixed(2)}</span></div>
-          <div className="hr" />
-          <div className="mono tot-line"><span>Items Subtotal</span><span>{Number(totals.subtotal).toFixed(2)}</span></div>
-          <div className="mono tot-line"><span>Delivery Fee</span><span>{Number(deliveryCharge).toFixed(2)}</span></div>
-          <div className="mono tot-line"><span>Opening Balance</span><span>0.00</span></div>
-          <div className="mono tot-line"><span>Bill Amount</span><span>{Number(grandTotal).toFixed(2)}</span></div>
-          <div className="mono tot-line"><span>Closing Balance</span><span>{Number(grandTotal).toFixed(2)}</span></div>
-          <div className="hr" />
-          <div className="mono t-center" style={{ marginTop: 8 }}>
-            நிலவெள்வரிசOLD26kgrs1300
-          </div>
-          <div className="mono t-center" style={{ marginBottom: 8 }}>
-            வெள்ளவரிசOLD26kgRs1400
-          </div>
-        </div>
       </div>
     </div>
   );
