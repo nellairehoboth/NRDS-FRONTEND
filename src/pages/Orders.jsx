@@ -14,7 +14,7 @@ const Orders = () => {
   const [actionMessage, setActionMessage] = useState('');
   const [deletingId, setDeletingId] = useState(null);
 
-  const fetchOrders = React.useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const response = await api.get('/api/orders');
       setOrders(response.data.orders || []);

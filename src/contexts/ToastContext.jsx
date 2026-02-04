@@ -13,6 +13,10 @@ export const useToast = () => {
 export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([]);
 
+    const removeToast = useCallback((id) => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, []);
+
     const showToast = useCallback((message, type = 'info', duration = 3000) => {
         const id = Math.random().toString(36).substr(2, 9);
         setToasts((prev) => [...prev, { id, message, type, duration }]);
@@ -20,11 +24,8 @@ export const ToastProvider = ({ children }) => {
         setTimeout(() => {
             removeToast(id);
         }, duration);
-    }, []);
-
-    const removeToast = useCallback((id) => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, []);
+        // eslint-disable-next-line no-use-before-define, react-hooks/exhaustive-deps
+    }, [removeToast]);
 
     return (
         <ToastContext.Provider value={{ showToast, removeToast, toasts }}>
