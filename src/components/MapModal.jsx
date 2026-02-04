@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../api/axios';
+import { useToast } from '../contexts/ToastContext';
 import './MapModal.css';
 import { handleImageError } from '../utils/imageUtils';
 import { parseNominatimAddress } from '../utils/mapUtils';
@@ -60,6 +61,7 @@ const MapModal = ({
     viewOnly = false,
     title = "Select Delivery Location"
 }) => {
+    const { showToast } = useToast();
     const [selectedLoc, setSelectedLoc] = useState(initialLocation);
     const [route, setRoute] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -146,7 +148,7 @@ const MapModal = ({
                 const newLoc = { lat: parseFloat(lat), lng: parseFloat(lon) };
                 setSelectedLoc(newLoc);
             } else {
-                alert("No location found. Please try a different search term.");
+                showToast("No location found. Please try a different search term.", "warning");
             }
         } catch (err) {
             console.error("Search failed:", err);
@@ -189,7 +191,7 @@ const MapModal = ({
     // Update handleCurrentLocation to not just set loc but also trigger view change
     const handleCurrentLocation = () => {
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser");
+            showToast("Geolocation is not supported by your browser", "error");
             return;
         }
         setIsSearching(true);
@@ -213,7 +215,7 @@ const MapModal = ({
 
             // If high accuracy fails or times out, try one more time with low accuracy
             if (options.enableHighAccuracy) {
-                console.log("Retrying with low accuracy...");
+
                 navigator.geolocation.getCurrentPosition(success, (err2) => {
                     let msg = "Location request timed out.";
                     if (err2.code === 1) msg = "Location access denied.";

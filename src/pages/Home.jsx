@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import './Home.css';
-import { useI18n } from '../contexts/I18nContext';
+
 
 const Home = () => {
   const navigate = useNavigate();
-  const { t } = useI18n();
+
   const scrollRef = React.useRef(null);
 
   const [categories, setCategories] = useState([]);
@@ -48,6 +48,25 @@ const Home = () => {
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
+        // Fallback categories if backend is offline
+        const targets = [
+          { key: 'vegetable', img: 'https://cdn-icons-gif.flaticon.com/15547/15547209.gif' },
+          { key: 'coffee', img: 'https://cdn-icons-gif.flaticon.com/18499/18499084.gif' },
+          { key: 'chips', img: 'https://cdn-icons-gif.flaticon.com/15240/15240128.gif' },
+          { key: 'chocolate', img: 'https://cdn-icons-gif.flaticon.com/15240/15240153.gif' },
+          { key: 'cake', img: 'https://cdn-icons-gif.flaticon.com/18545/18545045.gif' },
+          { key: 'oil', img: 'https://cdn-icons-gif.flaticon.com/15547/15547184.gif' },
+          { key: 'biscuits', img: 'https://cdn-icons-gif.flaticon.com/17507/17507052.gif' },
+          { key: 'shampoo', img: 'https://cdn-icons-gif.flaticon.com/17695/17695858.gif' },
+          { key: 'tea', img: 'https://cdn-icons-gif.flaticon.com/13373/13373331.gif' },
+          { key: 'rice', img: 'https://cdn-icons-gif.flaticon.com/12277/12277932.gif' }
+        ];
+        const fallbackCats = targets.map(t => ({
+          id: t.key,
+          name: t.key.charAt(0).toUpperCase() + t.key.slice(1),
+          img: t.img
+        }));
+        setCategories(fallbackCats);
       }
     };
 
@@ -55,10 +74,34 @@ const Home = () => {
   }, []);
 
 
+  const [isHovered, setIsHovered] = useState(false);
+  const [scrollDirection, setScrollDirection] = useState(1); // 1 for right, -1 for left
+
+  useEffect(() => {
+    let interval;
+    if (!isHovered && scrollRef.current) {
+      interval = setInterval(() => {
+        if (scrollRef.current) {
+          const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+
+          // Check boundaries and reverse direction
+          if (scrollDirection === 1 && scrollLeft + clientWidth >= scrollWidth - 1) {
+            setScrollDirection(-1);
+          } else if (scrollDirection === -1 && scrollLeft <= 0) {
+            setScrollDirection(1);
+          }
+
+          // Move based on direction
+          scrollRef.current.scrollLeft += scrollDirection;
+        }
+      }, 5); // 5ms delay as set by user
+    }
+    return () => clearInterval(interval);
+  }, [isHovered, categories, scrollDirection]);
+
   const handleWheel = (e) => {
     if (scrollRef.current) {
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // Allow natural horizontal scroll
-      e.preventDefault();
       scrollRef.current.scrollLeft += e.deltaY;
     }
   };
@@ -77,7 +120,7 @@ const Home = () => {
             <div className="hero-text">
               <h2>Tasty Vegetables<br />from Farm Vendors</h2>
               <p className="hero-sub">Every Fridays Check<br />Best Market Deals!</p>
-              <button className="btn-hero-orange" onClick={() => navigate('/products?category=vegetables')}>Shop Now</button>
+              <button className="btn-hero-orange" onClick={() => navigate('/products?category=Vegetable')}>Shop Now</button>
             </div>
             <img
               src="https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=600&auto=format&fit=crop"
@@ -106,13 +149,15 @@ const Home = () => {
       <section className="category-section">
         <div className="container">
           <div className="section-header-center">
-            <h2>{t('home.browse_category', 'Categories')}</h2>
+            <h2>Categories</h2>
           </div>
 
           <div
             className="category-train-container"
             ref={scrollRef}
             onWheel={handleWheel}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           >
             <div className="category-grid-featured">
               {categories.map((cat, index) => (

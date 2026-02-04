@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useI18n } from '../contexts/I18nContext';
+
 import api from '../api/axios';
 import MapPicker from '../components/MapPicker.jsx';
 import { getAvatarUrl } from '../utils/imageUtils';
@@ -9,7 +9,7 @@ import './Profile.css';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
-    const { t } = useI18n();
+
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -144,7 +144,7 @@ const Profile = () => {
 
             setMessage({
                 type: 'error',
-                text: `${t('profile.save_fail', 'Failed to update profile')}: ${errorMessage}`
+                text: `Failed to update profile: ${errorMessage}`
             });
         } finally {
             setLoading(false);
@@ -160,8 +160,8 @@ const Profile = () => {
         <div className="profile-page-container">
             <div className="profile-card">
                 <div className="profile-header">
-                    <h2>{t('profile.title', 'User Profile')}</h2>
-                    <p>{t('profile.subtitle', 'Manage your personal information and photo')}</p>
+                    <h2>User Profile</h2>
+                    <p>Manage your personal information and photo</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="profile-form">
@@ -186,7 +186,7 @@ const Profile = () => {
                     </div>
 
                     <div className="form-group full-width">
-                        <label>{t('profile.name', 'Full Name')}</label>
+                        <label>Full Name</label>
                         <input
                             type="text"
                             name="name"
@@ -197,12 +197,12 @@ const Profile = () => {
                     </div>
 
                     <div className="form-group">
-                        <label>{t('profile.email', 'Email Address')}</label>
+                        <label>Email Address</label>
                         <input type="email" value={user?.email || ''} disabled style={{ opacity: 0.6 }} />
                     </div>
 
                     <div className="form-group">
-                        <label>{t('profile.phone', 'Phone Number')}</label>
+                        <label>Phone Number</label>
                         <input
                             type="tel"
                             name="phone"
@@ -213,7 +213,7 @@ const Profile = () => {
 
                     <div className="address-section">
                         <div style={{ marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0 }}>{t('profile.address_title', 'Delivery Address')}</h3>
+                            <h3 style={{ margin: 0 }}>Delivery Address</h3>
                             <button
                                 type="button"
                                 onClick={() => setShowMap(!showMap)}
@@ -239,7 +239,7 @@ const Profile = () => {
                         )}
                         <div className="address-grid">
                             <div className="form-group full-width">
-                                <label>{t('profile.street', 'Street Address')}</label>
+                                <label>Street Address</label>
                                 <input
                                     type="text"
                                     name="address.street"
@@ -248,7 +248,7 @@ const Profile = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>{t('profile.city', 'City')}</label>
+                                <label>City</label>
                                 <input
                                     type="text"
                                     name="address.city"
@@ -257,7 +257,7 @@ const Profile = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>{t('profile.state', 'State')}</label>
+                                <label>State</label>
                                 <input
                                     type="text"
                                     name="address.state"
@@ -266,7 +266,7 @@ const Profile = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>{t('profile.zip', 'Zip Code')}</label>
+                                <label>Zip Code</label>
                                 <input
                                     type="text"
                                     name="address.zipCode"
@@ -293,7 +293,7 @@ const Profile = () => {
 
                     <div className="profile-actions">
                         <button type="submit" className="btn-save-profile" disabled={loading}>
-                            {loading ? t('common.saving', 'Saving...') : t('profile.save_btn', 'Save Profile')}
+                            {loading ? 'Saving...' : 'Save Profile'}
                         </button>
                     </div>
                 </form>

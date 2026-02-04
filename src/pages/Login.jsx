@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
 import './Login.css';
-import { useI18n } from '../contexts/I18nContext';
+
 
 const Login = () => {
   const { isAuthenticated, login } = useAuth();
-  const { t } = useI18n();
+
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -15,6 +15,7 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -27,11 +28,11 @@ const Login = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const errorParam = urlParams.get('error');
     if (errorParam === 'google_oauth_not_configured') {
-      setError(t('auth.oauth_not_configured', 'Google OAuth is not fully configured. Please use email/password login.'));
+      setError('Google OAuth is not fully configured. Please use email/password login.');
     } else if (errorParam) {
-      setError(t('auth.auth_failed', 'Authentication failed. Please try again.'));
+      setError('Authentication failed. Please try again.');
     }
-  }, [isAuthenticated, navigate, t]);
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -53,11 +54,11 @@ const Login = () => {
         await login(response.data.token, response.data.user, rememberMe);
         navigate('/');
       } else {
-        setError(response.data.message || t('auth.login.failed', 'Login failed'));
+        setError(response.data.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.response?.data?.message || t('auth.login.try_again', 'Login failed. Please try again.'));
+      setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -78,8 +79,8 @@ const Login = () => {
       <div className="login-container">
         <div className="login-card">
           <div className="login-header">
-            <h1>{t('auth.login.title', 'Welcome Back!')}</h1>
-            <p>{t('auth.login.subtitle', 'Login to your account')}</p>
+            <h1>Welcome Back!</h1>
+            <p>Login to your account</p>
           </div>
 
           <div className="login-content">
@@ -91,7 +92,7 @@ const Login = () => {
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">
-                <label htmlFor="email">{t('auth.email', 'Email Address')}</label>
+                <label htmlFor="email">Email Address</label>
                 <input
                   type="email"
                   id="email"
@@ -99,23 +100,37 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  placeholder={t('auth.email_ph', 'Enter your email')}
+                  placeholder="Enter your email"
                   className="form-input"
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="password">{t('auth.password', 'Password')}</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                  placeholder={t('auth.password_ph', 'Enter your password')}
-                  className="form-input"
-                />
+                <label htmlFor="password">Password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your password"
+                    className="form-input"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="form-options">
@@ -125,7 +140,7 @@ const Login = () => {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>{t('auth.remember_me', 'Remember Me')}</span>
+                  <span>Remember Me</span>
                 </label>
               </div>
 
@@ -134,7 +149,7 @@ const Login = () => {
                 disabled={loading}
                 className="signin-btn"
               >
-                {loading ? t('auth.login.signing_in', 'Signing In...') : t('auth.login.sign_in', 'Sign In')}
+                {loading ? 'Logging In...' : 'Login In'}
               </button>
             </form>
 
@@ -144,22 +159,22 @@ const Login = () => {
               disabled={loading}
             >
               <img src="https://img.icons8.com/?size=96&id=17949&format=png" alt="Google" className="google-icon" />
-              {t('auth.continue_google', 'Continue with Google')}
+              Continue with Google
             </button>
 
             {/* Demo login UI removed */}
 
             <div className="signup-link">
               <p>
-                {t('auth.login.no_account', "Don't have an account?")}
-                <Link to="/signup"> {t('auth.signup.here', 'Sign up here')}</Link>
+                Don't have an account?
+                <Link to="/signup"> Sign up here</Link>
               </p>
             </div>
           </div>
 
           <div className="login-footer">
             <p>
-              {t('auth.terms_login', 'By signing in, you agree to our Terms of Service and Privacy Policy.')}
+              By signing in, you agree to our Terms of Service and Privacy Policy.
             </p>
           </div>
         </div>

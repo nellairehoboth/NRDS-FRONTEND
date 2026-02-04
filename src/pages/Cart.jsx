@@ -2,10 +2,10 @@ import React from 'react';
 import { useCart } from '../contexts/CartContext';
 import { Link } from 'react-router-dom';
 import './Cart.css';
-import { useI18n } from '../contexts/I18nContext';
+
 import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
 
-const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
+const CartItem = ({ item, handleQuantityChange, removeFromCart }) => {
   const [localQty, setLocalQty] = React.useState(String(item.quantity));
 
   React.useEffect(() => {
@@ -64,11 +64,11 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
       <div className="item-details">
         <h3 className={isUnavailable ? 'unavailable' : ''}>{name}</h3>
         {isUnavailable ? (
-          <span className="unavailable-badge">{t('cart.unavailable', 'Unavailable')}</span>
+          <span className="unavailable-badge">Unavailable</span>
         ) : variantLabel ? (
           <p>₹{item.price} ({variantLabel})</p>
         ) : (
-          <p>₹{item.price} {t('cart.per', 'per')} {unit}</p>
+          <p>₹{item.price} per {unit}</p>
         )}
       </div>
       <div className="quantity-controls">
@@ -100,7 +100,7 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
         }}
         className="remove-btn"
       >
-        {t('cart.remove', 'Remove')}
+        Remove
       </button>
     </div>
   );
@@ -108,7 +108,7 @@ const CartItem = ({ item, handleQuantityChange, removeFromCart, t }) => {
 
 const Cart = () => {
   const { cart, updateCartItem, removeFromCart, loading } = useCart();
-  const { t } = useI18n();
+
 
   const handleQuantityChange = async (productId, variantId, newQuantity, cartItemId = null) => {
     if (newQuantity <= 0) {
@@ -119,16 +119,16 @@ const Cart = () => {
   };
 
   if (loading) {
-    return <div className="loading">{t('cart.loading', 'Loading cart...')}</div>;
+    return <div className="loading">Loading cart...</div>;
   }
 
   if (!cart.items || cart.items.length === 0) {
     return (
       <div className="cart-empty">
-        <h2>{t('cart.empty_title', 'Your cart is empty')}</h2>
-        <p>{t('cart.empty_sub', 'Add some products to get started!')}</p>
+        <h2>Your cart is empty</h2>
+        <p>Add some products to get started!</p>
         <Link to="/products" className="btn btn-primary">
-          {t('cart.shop_now', 'Shop Now')}
+          Shop Now
         </Link>
       </div>
     );
@@ -139,7 +139,7 @@ const Cart = () => {
   return (
     <div className="cart-page">
       <div className="container">
-        <h1>{t('cart.title', 'Shopping Cart')}</h1>
+        <h1>Shopping Cart</h1>
         <div className="cart-content">
           <div className="cart-items">
             {cart.items.map((item, index) => (
@@ -148,24 +148,23 @@ const Cart = () => {
                 item={item}
                 handleQuantityChange={handleQuantityChange}
                 removeFromCart={removeFromCart}
-                t={t}
               />
             ))}
           </div>
           <div className="cart-summary">
-            <h3>{t('cart.summary', 'Order Summary')}</h3>
+            <h3>Order Summary</h3>
             <div className="summary-line">
-              <span>{t('cart.total_items', 'Total Items:')}</span>
+              <span>Total Items:</span>
               <span>{cart.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
             </div>
             <div className="summary-line total">
-              <span>{t('cart.total_amount', 'Total Amount:')}</span>
+              <span>Total Amount:</span>
               <span>₹{cart.totalAmount.toFixed(2)}</span>
             </div>
 
             {hasUnavailableItems && (
               <div className="checkout-warning">
-                ⚠️ {t('cart.checkout_warning', 'Please remove unavailable items to proceed.')}
+                ⚠️ Please remove unavailable items to proceed.
               </div>
             )}
 
@@ -173,12 +172,12 @@ const Cart = () => {
               to={hasUnavailableItems ? '#' : "/checkout"}
               className={`btn checkout-btn ${hasUnavailableItems ? 'disabled' : ''}`}
             >
-              {t('cart.checkout', 'Proceed to Checkout')}
+              Proceed to Checkout
             </Link>
 
             <div className="continue-shopping-link">
               <Link to="/products">
-                {t('cart.continue_shopping', 'Continue Shopping')}
+                Continue Shopping
               </Link>
             </div>
           </div>

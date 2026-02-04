@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { useI18n } from '../contexts/I18nContext';
+
 import VoiceSearch from './VoiceSearch';
 import AnnouncementBar from './AnnouncementBar';
 import logo from '../assets/logo.png';
@@ -13,7 +13,9 @@ import './Navbar.css';
 const Navbar = () => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { getCartItemCount } = useCart();
-  const { lang, setLang, t } = useI18n();
+  const navRef = React.useRef(null);
+  const [isHovered, setIsHovered] = useState(false);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileImageError, setMobileImageError] = useState(false);
   const { pathname } = useLocation();
@@ -40,10 +42,44 @@ const Navbar = () => {
         }
       } catch (error) {
         console.error('Failed to fetch categories', error);
+        // Fallback to target set if backend is offline
+        const targetSet = ['vegetable', 'coffee', 'chips', 'chocolate', 'biscuit', 'rice', 'sugar', 'tea'];
+        setCategories(targetSet);
       }
     };
     fetchCategories();
   }, []);
+
+  const [scrollDirection, setScrollDirection] = useState(1); // 1 for right, -1 for left
+
+  useEffect(() => {
+    let interval;
+    if (!isHovered && navRef.current) {
+      interval = setInterval(() => {
+        if (navRef.current) {
+          const { scrollLeft, scrollWidth, clientWidth } = navRef.current;
+
+          // Check boundaries and reverse direction
+          if (scrollDirection === 1 && scrollLeft + clientWidth >= scrollWidth - 1) {
+            setScrollDirection(-1);
+          } else if (scrollDirection === -1 && scrollLeft <= 0) {
+            setScrollDirection(1);
+          }
+
+          // Move based on direction
+          navRef.current.scrollLeft += scrollDirection;
+        }
+      }, 20); // 20ms delay as set by user
+    }
+    return () => clearInterval(interval);
+  }, [isHovered, categories, scrollDirection]);
+
+  const handleWheel = (e) => {
+    if (navRef.current) {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      navRef.current.scrollLeft += e.deltaY;
+    }
+  };
 
   const getUserInitials = (name) => {
     if (!name) return '?';
@@ -96,9 +132,15 @@ const Navbar = () => {
           </Link>
 
           {/* Inline Categories (Center) */}
-          <nav className="inline-categories">
+          <nav
+            className="inline-categories"
+            ref={navRef}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onWheel={handleWheel}
+          >
             <Link to="/products" className="cat-item-link">
-              <span className="cat-icon-outline"><img src="https://cdn-icons-gif.flaticon.com/15547/15547234.gif" alt="" /></span> {t('nav.all_products', 'Products')}
+              <span className="cat-icon-outline"><img src="https://cdn-icons-gif.flaticon.com/15547/15547234.gif" alt="" /></span> Products
             </Link>
             {/* Top Categories with specific icons */}
             {categories.find(c => c.toLowerCase().includes('vegetable')) && (
@@ -156,20 +198,12 @@ const Navbar = () => {
               <ProfileDropdown />
             ) : (
               <div className="auth-links">
-                <Link to="/login" className="auth-link auth-login">{t('nav.login', 'Login')}</Link>
-                <Link to="/signup" className="auth-link auth-signup">{t('nav.signup', 'Signup')}</Link>
+                <Link to="/login" className="auth-link auth-login">Login</Link>
+                <Link to="/signup" className="auth-link auth-signup">Signup</Link>
               </div>
             )}
 
-            {/* Language Switcher */}
-            <button
-              className="icon-wrap lang-switcher"
-              onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
-              title={lang === 'en' ? 'Switch to Tamil' : 'Switch to English'}
-            >
-              🌐
-              <span className="lang-label">{lang.toUpperCase()}</span>
-            </button>
+
 
             <Link to="/cart" className="icon-wrap cart-wrap">
               🛒
@@ -191,8 +225,8 @@ const Navbar = () => {
             <Link to="/products" onClick={() => setIsMenuOpen(false)}>Products</Link>
             {isAuthenticated && (
               <>
-                <Link to="/profile" onClick={() => setIsMenuOpen(false)}>{t('nav.profile', 'My Profile')}</Link>
-                <Link to="/orders" onClick={() => setIsMenuOpen(false)}>{t('nav.orders', 'My Orders')}</Link>
+                <Link to="/profile" onClick={() => setIsMenuOpen(false)}>My Profile</Link>
+                <Link to="/orders" onClick={() => setIsMenuOpen(false)}>My Orders</Link>
               </>
             )}
 

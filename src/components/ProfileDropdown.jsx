@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useI18n } from '../contexts/I18nContext';
+
 import './ProfileDropdown.css';
 
 const ProfileDropdown = () => {
     const { user, isAdmin, logout } = useAuth();
-    const { t } = useI18n();
+
     const [isOpen, setIsOpen] = useState(false);
     const [hasImageError, setHasImageError] = useState(false);
     const dropdownRef = useRef(null);
@@ -62,24 +62,24 @@ const ProfileDropdown = () => {
                         {isAdmin && (
                             <li>
                                 <Link to="/admin" onClick={() => setIsOpen(false)}>
-                                    <span className="dropdown-icon">🛡️</span> {t('nav.admin', 'Admin Panel')}
+                                    <span className="dropdown-icon">🛡️</span> Admin Panel
                                 </Link>
                             </li>
                         )}
                         <li>
                             <Link to="/profile" onClick={() => setIsOpen(false)}>
-                                <span className="dropdown-icon">👤</span> {t('nav.profile', 'My Profile')}
+                                <span className="dropdown-icon">👤</span> My Profile
                             </Link>
                         </li>
                         <li>
                             <Link to="/orders" onClick={() => setIsOpen(false)}>
-                                <span className="dropdown-icon">📦</span> {t('nav.orders', 'My Orders')}
+                                <span className="dropdown-icon">📦</span> My Orders
                             </Link>
                         </li>
                         <div className="dropdown-divider"></div>
                         <li>
                             <button onClick={() => { logout(); setIsOpen(false); }} className="dropdown-logout-btn">
-                                <span className="dropdown-icon">🚪</span> {t('nav.logout', 'Logout')}
+                                <span className="dropdown-icon">🚪</span> Logout
                             </button>
                         </li>
                     </ul>

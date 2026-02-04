@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../contexts/ToastContext";
 import "./VoiceSearch.css";
 
 const VoiceSearch = ({ onSearch }) => {
+  const { showToast } = useToast();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +22,7 @@ const VoiceSearch = ({ onSearch }) => {
 
   const handleVoiceCommand = useCallback(
     (command) => {
-      console.log("Voice command:", command);
+
       if (command.includes("go to cart") || command.includes("show cart")) {
         navigate("/cart");
       } else if (command.includes("go to products") || command.includes("show products")) {
@@ -98,7 +100,7 @@ const VoiceSearch = ({ onSearch }) => {
         }
       }
     } else {
-      alert("Speech recognition not supported.");
+      showToast("Speech recognition not supported.", "error");
     }
   };
 

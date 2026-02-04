@@ -10,7 +10,7 @@
   background:
     linear-gradient(rgba(0, 0, 0, 0.30),
       rgba(0, 0, 0, 0.30)),
-    url("https://lh3.googleusercontent.com/gps-cs-s/AG0ilSz55-XPMpanrDBNE-u8tL3OqSsqsBQqFwI5ZFlk19AvEIMDi-3RJczseoFKaz2uO4Rv-h9Kl_lS5iy3-EVhv2l1-b4SEzUPSbbgSNUKi_w-mVdkgolNzjjv4JD-bBDS1RkeUmggEA=s1360-w1360-h1020-rw");
+    url("https://lh3.googleusercontent.com/gps-cs-s/AG0ilSx-7jsCyFr9yf9vh9pECsZoQPRKOQ0BVZCysZbmpTLKEzICTql-QpwnPvbBGr7jFU9Ay7uwAAjVtrg6zJpupUBVsmlnjarIruzL82iA_Fkf1wrpdtQYAWAUK5tsphqSGVkQtAnqMA=s1360-w1360-h1020-rw");
 
   background-size: cover;
   background-position: center;
@@ -118,6 +118,35 @@
 .form-input:focus {
   outline: none;
   border-color: #2c5530;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s;
+}
+
+.password-toggle-btn:hover {
+  color: #2c5530;
+}
+
+.eye-icon {
+  width: 20px;
+  height: 20px;
 }
 
 /* ===============================

@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import api from '../api/axios';
 import './AdminPanel.css';
-import { useI18n } from '../contexts/I18nContext';
+
 import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
 import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
 import { handlePrintInvoice } from '../utils/invoiceUtils';
 
 const AdminPanel = () => {
-  const { t } = useI18n();
+  const { showToast } = useToast();
+  const showConfirm = useConfirm();
+
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -84,7 +88,7 @@ const AdminPanel = () => {
   };
 
   const handleStoreLocate = () => {
-    if (!navigator.geolocation) return alert('Geolocation not supported');
+    if (!navigator.geolocation) return showToast('Geolocation not supported', 'error');
     setIsLocatingStore(true);
 
     const options = {
@@ -109,11 +113,11 @@ const AdminPanel = () => {
       if (options.enableHighAccuracy) {
         // Retry without high accuracy
         navigator.geolocation.getCurrentPosition(success, (err2) => {
-          alert('Position access denied or timed out');
+          showToast('Position access denied or timed out', 'error');
           setIsLocatingStore(false);
         }, { ...options, enableHighAccuracy: false, timeout: 5000 });
       } else {
-        alert('Position access denied or timed out');
+        showToast('Position access denied or timed out', 'error');
         setIsLocatingStore(false);
       }
     };
@@ -131,11 +135,11 @@ const AdminPanel = () => {
       if (data && data.length > 0) {
         setSettings({ ...settings, storeLatitude: parseFloat(data[0].lat), storeLongitude: parseFloat(data[0].lon) });
       } else {
-        alert('Address not found');
+        showToast('Address not found', 'warning');
       }
     } catch (err) {
       console.error(err);
-      alert('Search failed');
+      showToast('Search failed', 'error');
     } finally {
       setIsLocatingStore(false);
     }
@@ -203,20 +207,40 @@ const AdminPanel = () => {
         fetchProducts(1);
       }, 500);
       return () => clearTimeout(delayDebounceFn);
-    } else if (activeTab === 'orders') {
-      fetchOrders();
     } else if (activeTab === 'settings') {
       fetchSettings();
     }
   }, [productSearch, productCategoryFilter, productStockFilter, activeTab, fetchProducts]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
+  const fetchOrders = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const response = await api.get('/api/admin/orders');
-      setOrders(response.data.orders || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+      const allOrders = response.data.orders || [];
+      setOrders(allOrders);
+
+      // Identify unseen orders: updated after our last seen timestamp
+      const newUnseen = allOrders.filter(o => {
+        const orderTs = new Date(o.updatedAt).getTime();
+        return orderTs > lastSeenOrderTs;
+      });
+      setUnseenOrders(newUnseen);
+
+    } catch (e) {
+      console.error('Error fetching admin orders:', e);
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  }, [lastSeenOrderTs]);
+
+  // Background polling for orders (every 30 seconds)
+  useEffect(() => {
+    fetchOrders(true); // Initial fetch
+    const interval = setInterval(() => {
+      fetchOrders(true);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchOrders]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -251,8 +275,8 @@ const AdminPanel = () => {
         deliverySlabs: settings.deliverySlabs
       };
       await api.post('/api/settings/update', body);
-      alert(t('admin.settings_save_success', 'Settings saved successfully!'));
-    } catch (e) { alert(t('admin.settings_save_failed', 'Failed to save settings.')); }
+      showToast('Settings saved successfully!', 'success');
+    } catch (e) { showToast('Failed to save settings.', 'error'); }
     finally { setSavingSettings(false); }
   };
 
@@ -260,16 +284,17 @@ const AdminPanel = () => {
     try {
       await api.put(`/api/admin/orders/${orderId}`, { status });
       fetchOrders();
-    } catch (e) { alert('Failed to update order status'); }
+    } catch (e) { showToast('Failed to update order status', 'error'); }
   };
 
   const quickConfirmOnline = async (order) => {
-    if (!window.confirm('Confirm this online-paid order?')) return;
-    await updateOrderStatus(order._id, 'ADMIN_CONFIRMED');
+    const confirmed = await showConfirm('Confirm Order', 'Confirm this online-paid order?');
+    if (confirmed) await updateOrderStatus(order._id, 'ADMIN_CONFIRMED');
   };
 
   const quickDeliverCOD = async (order) => {
-    if (!window.confirm('Mark this COD order as Delivered?')) return;
+    const confirmed = await showConfirm('Deliver Order', 'Mark this COD order as Delivered?');
+    if (!confirmed) return;
     const chain = ['ADMIN_CONFIRMED', 'SHIPPED', 'DELIVERED'];
     for (const next of chain) await api.put(`/api/admin/orders/${order._id}`, { status: next });
     fetchOrders();
@@ -290,15 +315,17 @@ const AdminPanel = () => {
     try {
       const variants = toValidVariants(editForm.variants);
       if (variants.length === 0 && (!editForm.price || editForm.price <= 0)) {
-        return alert('Please provide either a base price or add variants with prices.');
+        return showToast('Please provide either a base price or add variants with prices.', 'warning');
       }
       const images = [editForm.secondaryImage].filter(Boolean);
       const payload = { ...editForm, variants, images };
       await api.put(`/api/admin/products/${editingProduct._id}`, payload);
       setEditingProduct(null);
       fetchProducts();
-      alert(t('admin.product_update_success', 'Product updated successfully!'));
-    } catch (e) { alert(e.response?.data?.message || t('admin.product_update_failed', 'Failed to update product')); }
+      setEditingProduct(null);
+      fetchProducts();
+      showToast('Product updated successfully!', 'success');
+    } catch (e) { showToast(e.response?.data?.message || 'Failed to update product', 'error'); }
     finally { setSavingEdit(false); }
   };
 
@@ -307,7 +334,7 @@ const AdminPanel = () => {
     try {
       const variants = toValidVariants(newProduct.variants);
       if (variants.length === 0 && (!newProduct.price || newProduct.price <= 0)) {
-        return alert('Please provide either a base price or add variants with prices.');
+        return showToast('Please provide either a base price or add variants with prices.', 'warning');
       }
       const images = [newProduct.secondaryImage].filter(Boolean);
       const payload = { ...newProduct, variants, images };
@@ -315,8 +342,10 @@ const AdminPanel = () => {
       setShowAddProduct(false);
       setNewProduct({ name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', secondaryImage: '', variants: [] });
       fetchProducts();
-      alert(t('admin.product_add_success', 'Product added successfully!'));
-    } catch (e) { alert(e.response?.data?.message || t('admin.product_add_failed', 'Failed to add product')); }
+      setNewProduct({ name: '', brand: '', barcode: '', description: '', price: '', mrp: '', gstRate: '', taxInclusive: true, category: 'fruits', stock: '', unit: 'kg', expiryDate: '', image: '', secondaryImage: '', variants: [] });
+      fetchProducts();
+      showToast('Product added successfully!', 'success');
+    } catch (e) { showToast(e.response?.data?.message || 'Failed to add product', 'error'); }
   };
 
 
@@ -330,32 +359,33 @@ const AdminPanel = () => {
   };
 
   const handleDeleteProduct = async (id) => {
-    if (!window.confirm(t('admin.confirm_delete', 'Are you sure you want to delete this product?'))) return;
+    const confirmed = await showConfirm('Delete Product', 'Are you sure you want to delete this product?');
+    if (!confirmed) return;
     try {
       await api.delete(`/api/admin/products/${id}`);
       fetchProducts();
-      alert(t('admin.delete_success', 'Product deleted successfully!'));
-    } catch (e) { alert(t('admin.delete_failed', 'Failed to delete product')); }
+      showToast('Product deleted successfully!', 'success');
+    } catch (e) { showToast('Failed to delete product', 'error'); }
   };
 
   const handleDeleteAllProducts = async () => {
-    const confirmed = window.confirm('DANGER: This will delete ALL products from the database forever. Are you absolutely sure?');
+    const confirmed = await showConfirm('DANGER: Delete All', 'DANGER: This will delete ALL products from the database forever. Are you absolutely sure?');
     if (!confirmed) return;
 
-    const secondConfirm = window.confirm('Are you REALLY sure? This cannot be undone.');
+    const secondConfirm = await showConfirm('Final Warning', 'Are you REALLY sure? This cannot be undone.');
     if (!secondConfirm) return;
 
     try {
       const response = await api.delete('/api/admin/products/delete-all');
       if (response.data.success) {
-        alert(`Successfully deleted ${response.data.count} products.`);
+        showToast(`Successfully deleted ${response.data.count} products.`, 'success');
         fetchProducts();
       }
     } catch (err) {
       console.error('Delete All Error:', err);
       const status = err.response?.status;
       const msg = err.response?.data?.message || err.message;
-      alert(`Error ${status || ''}: ${msg}`);
+      showToast(`Error ${status || ''}: ${msg}`, 'error');
     }
   };
 
@@ -380,7 +410,7 @@ const AdminPanel = () => {
     <div className="admin-panel">
       <div className="container">
         <div className="admin-header-row">
-          <h1>{t('admin.title', 'Admin Panel')}</h1>
+          <h1>Admin Panel</h1>
           <div className="admin-notifications">
             <button className="admin-bell-btn" onClick={() => setNotifOpen(!notifOpen)}>
               <img src="https://cdn-icons-gif.flaticon.com/16104/16104401.gif" alt="" /> {unseenOrders.length > 0 && <span className="admin-bell-badge">{unseenOrders.length}</span>}
@@ -416,15 +446,15 @@ const AdminPanel = () => {
         </div>
 
         <div className="admin-tabs">
-          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>{t('admin.tabs.products', 'Products')}</button>
-          <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>{t('admin.tabs.orders', 'Orders')}</button>
-          <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>{t('admin.tabs.settings', 'Settings')}</button>
+          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>Products</button>
+          <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>Orders</button>
+          <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Settings</button>
         </div>
 
         {activeTab === 'products' && (
           <div className="products-management">
             <div className="section-header">
-              <h2>{t('admin.products_mgmt', 'Products Management')}</h2>
+              <h2>Products Management</h2>
               <div style={{ display: 'flex', gap: '10px' }}>
                 {!editingProduct && (
                   <>
@@ -447,14 +477,14 @@ const AdminPanel = () => {
                             timeout: 300000 // Increase timeout to 5 minutes for very large files
                           });
                           if (res.data.success) {
-                            alert(res.data.message);
+                            showToast(res.data.message, 'success');
                             fetchProducts();
                           } else {
-                            alert('Upload failed: ' + res.data.message);
+                            showToast('Upload failed: ' + res.data.message, 'error');
                           }
                         } catch (err) {
                           console.error(err);
-                          alert('Upload error: ' + (err.response?.data?.message || err.message));
+                          showToast('Upload error: ' + (err.response?.data?.message || err.message), 'error');
                         } finally {
                           setUploading(false);
                           e.target.value = null; // Reset input
@@ -471,7 +501,8 @@ const AdminPanel = () => {
                     <button
                       onClick={async () => {
                         if (fetchingImages) return;
-                        if (!window.confirm('This will search online images for products without one. It may take some time. Continue?')) return;
+                        const confirmed = await showConfirm('Auto-Fetch Images', 'This will search online images for products without one. It may take some time. Continue?');
+                        if (!confirmed) return;
                         setFetchingImages(true);
                         setFetchProgress('Starting...');
 
@@ -483,7 +514,7 @@ const AdminPanel = () => {
                             const res = await api.post('/api/admin/products/fetch-images', {}, { timeout: 60000 });
                             if (res.data.success) {
                               if (res.data.completed) {
-                                alert('Image fetch completed!');
+                                showToast('Image fetch completed!', 'success');
                                 setFetchingImages(false);
                                 setFetchProgress('');
                                 fetchProducts();
@@ -495,13 +526,13 @@ const AdminPanel = () => {
                                 runBatch();
                               }
                             } else {
-                              alert('Fetch failed: ' + res.data.message);
+                              showToast('Fetch failed: ' + res.data.message, 'error');
                               setFetchingImages(false);
                             }
                           } catch (err) {
                             console.error(err);
                             const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
-                            alert(`Fetch error: ${serverMsg}`);
+                            showToast(`Fetch error: ${serverMsg}`, 'error');
                             setFetchingImages(false);
                           }
                         };
@@ -518,7 +549,7 @@ const AdminPanel = () => {
                       onClick={() => setShowAddProduct(true)}
                       className="btn btn-primary"
                     >
-                      {t('admin.add_product', 'Add Product')}
+                      Add Product
                     </button>
                   </>
                 )}
@@ -535,7 +566,7 @@ const AdminPanel = () => {
                     type="text"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder={t('admin.search_ph', 'Search product name or category...')}
+                    placeholder="Search product name or category..."
                     className="admin-filter-input"
                   />
                   <select
@@ -545,7 +576,7 @@ const AdminPanel = () => {
                   >
                     {variantLabelOptions.map((opt) => (
                       <option key={opt} value={opt}>
-                        {opt === 'all' ? t('admin.all_variants', 'All Variants') : opt}
+                        {opt === 'all' ? 'All Variants' : opt}
                       </option>
                     ))}
                   </select>
@@ -554,7 +585,7 @@ const AdminPanel = () => {
                     onChange={(e) => setProductCategoryFilter(e.target.value)}
                     className="admin-filter-select"
                   >
-                    <option value="all">{t('admin.all_categories', 'All Categories')}</option>
+                    <option value="all">All Categories</option>
                     {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -566,9 +597,9 @@ const AdminPanel = () => {
                     onChange={(e) => setProductStockFilter(e.target.value)}
                     className="admin-filter-select"
                   >
-                    <option value="all">{t('admin.all_stock', 'All Stock')}</option>
-                    <option value="low">{t('admin.low_stock', 'Low Stock (≤ 5)')}</option>
-                    <option value="out">{t('admin.out_of_stock', 'Out of Stock')}</option>
+                    <option value="all">All Stock</option>
+                    <option value="low">Low Stock (≤ 5)</option>
+                    <option value="out">Out of Stock</option>
                   </select>
                   <button
                     type="button"
@@ -580,7 +611,7 @@ const AdminPanel = () => {
                       setProductStockFilter('all');
                     }}
                   >
-                    {t('admin.clear', 'Clear')}
+                    Clear
                   </button>
                 </div>
                 <div className="admin-filter-meta">
@@ -1137,7 +1168,7 @@ const AdminPanel = () => {
             <h2>Orders</h2>
             <div className="orders-table">
               <table>
-                <thead><tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {orders.map((order) => (
                     <tr key={order._id}>

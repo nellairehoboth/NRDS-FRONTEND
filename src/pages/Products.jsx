@@ -4,10 +4,10 @@ import ProductCard from '../components/ProductCard';
 import VoiceSearch from '../components/VoiceSearch';
 import api from '../api/axios';
 import './Products.css';
-import { useI18n } from '../contexts/I18nContext';
+
 
 const Products = () => {
-  const { t } = useI18n();
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +43,9 @@ const Products = () => {
       setCategories(response.data.categories || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
+      // Fallback categories if backend is offline
+      const fallbackCats = ['Vegetable', 'Coffee', 'Chips', 'Chocolate', 'Cake', 'Oil', 'Biscuits', 'Shampoo', 'Tea', 'Rice'];
+      setCategories(fallbackCats);
     }
   }, []);
 
@@ -76,25 +79,49 @@ const Products = () => {
     fetchProducts();
   }, [filters, fetchProducts]);
 
+  // Sync URL params to local state
   useEffect(() => {
     const search = searchParams.get('search') || '';
     const category = searchParams.get('category') || '';
+    const minPrice = searchParams.get('minPrice') || '';
+    const maxPrice = searchParams.get('maxPrice') || '';
+    const sortBy = searchParams.get('sortBy') || 'name';
 
-    if (search !== filters.search || category !== filters.category) {
-      setFilters(prev => ({ ...prev, search, category }));
-    }
-  }, [searchParams, filters.search, filters.category]);
+    // Only update local state if it differs from URL params
+    // This handles deep links and back/forward navigation
+    setFilters(prev => {
+      if (
+        prev.search !== search ||
+        prev.category !== category ||
+        prev.minPrice !== minPrice ||
+        prev.maxPrice !== maxPrice ||
+        prev.sortBy !== sortBy
+      ) {
+        return { search, category, minPrice, maxPrice, sortBy };
+      }
+      return prev;
+    });
+  }, [searchParams]);
+
+  // Sync local state to URL params with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const newSearchParams = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) newSearchParams.set(key, value);
+      });
+
+      // Compare with current params to avoid redundant updates
+      if (newSearchParams.toString() !== searchParams.toString()) {
+        setSearchParams(newSearchParams);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [filters, searchParams, setSearchParams]);
 
   const handleFilterChange = (key, value) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-
-    // Update URL params
-    const newSearchParams = new URLSearchParams();
-    Object.entries(newFilters).forEach(([k, v]) => {
-      if (v) newSearchParams.set(k, v);
-    });
-    setSearchParams(newSearchParams);
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   const handleVoiceSearch = (searchTerm) => {
@@ -109,7 +136,6 @@ const Products = () => {
       maxPrice: '',
       sortBy: 'name'
     });
-    setSearchParams({});
   };
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -119,12 +145,12 @@ const Products = () => {
       <div className="container">
         <div className="products-header">
           <div className="title-section">
-            <h1>{t('products.title', 'Products')}</h1>
+            <h1>Products</h1>
             <button
               className="mobile-filter-toggle"
               onClick={() => setShowMobileFilters(!showMobileFilters)}
             >
-              {showMobileFilters ? '✕' : '🔍 ' + t('products.filters.title', 'Filters')}
+              {showMobileFilters ? '✕' : '🔍 Filters'}
             </button>
           </div>
           <div className="products-search">
@@ -144,7 +170,7 @@ const Products = () => {
           {/* Filters Sidebar */}
           <aside className={`filters-sidebar ${showMobileFilters ? 'show' : ''}`}>
             <div className="filters-header">
-              <h3>{t('products.filters.title', 'Filters')}</h3>
+              <h3>Filters</h3>
               <button
                 onClick={() => {
                   clearFilters();
@@ -152,23 +178,23 @@ const Products = () => {
                 }}
                 className="clear-filters-btn"
               >
-                {t('products.filters.clear_all', 'Clear All')}
+                Clear All
               </button>
             </div>
 
             <div className="filter-group">
-              <label>🔍 {t('products.filters.search', 'Search')}</label>
+              <label>🔍 Search</label>
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                placeholder={t('products.filters.search_ph', 'Search products...')}
+                placeholder="Search products..."
                 className="filter-input"
               />
             </div>
 
             <div className="filter-group">
-              <label>📂 {t('products.filters.category', 'Category')}</label>
+              <label>📂 Category</label>
               <div className="custom-select-wrapper" onBlur={(e) => {
                 // Close dropdown if click outside
                 if (!e.currentTarget.contains(e.relatedTarget)) {
@@ -188,7 +214,7 @@ const Products = () => {
                     setIsCategoryOpen(true);
                     if (e.target.value === '') handleFilterChange('category', '');
                   }}
-                  placeholder={t('products.filters.all_categories', 'Type or Select Category')}
+                  placeholder="Type or Select Category"
                   className="filter-input"
                 />
                 {isCategoryOpen && (
@@ -201,7 +227,7 @@ const Products = () => {
                         setIsCategoryOpen(false);
                       }}
                     >
-                      {t('products.filters.all_categories', 'All Categories')}
+                      All Categories
                     </li>
                     {filteredCategories.length > 0 ? (
                       filteredCategories.map(category => (
@@ -228,38 +254,38 @@ const Products = () => {
             </div>
 
             <div className="filter-group">
-              <label>💰 {t('products.filters.price_range', 'Price Range')}</label>
+              <label>💰 Price Range</label>
               <div className="price-inputs">
                 <input
                   type="number"
                   value={filters.minPrice}
                   onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                  placeholder={t('products.filters.min', 'Min')}
+                  placeholder="Min"
                   className="filter-input price-input"
                 />
-                <span>{t('products.filters.to', 'to')}</span>
+                <span>to</span>
                 <input
                   type="number"
                   value={filters.maxPrice}
                   onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                  placeholder={t('products.filters.max', 'Max')}
+                  placeholder="Max"
                   className="filter-input price-input"
                 />
               </div>
             </div>
 
             <div className="filter-group">
-              <label>🔃 {t('products.filters.sort_by', 'Sort By')}</label>
+              <label>🔃 Sort By</label>
               <select
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
                 className="filter-select"
               >
-                <option value="name">🔤 {t('products.filters.sort_name', 'Name')}</option>
-                <option value="price">📉 {t('products.filters.sort_price_asc', 'Price: Low to High')}</option>
-                <option value="-price">📈 {t('products.filters.sort_price_desc', 'Price: High to Low')}</option>
-                <option value="category">🏷️ {t('products.filters.sort_category', 'Category')}</option>
-                <option value="-createdAt">✨ {t('products.filters.sort_newest', 'Newest First')}</option>
+                <option value="name">🔤 Name</option>
+                <option value="price">📉 Price: Low to High</option>
+                <option value="-price">📈 Price: High to Low</option>
+                <option value="category">🏷️ Category</option>
+                <option value="-createdAt">✨ Newest First</option>
               </select>
             </div>
 
@@ -268,7 +294,7 @@ const Products = () => {
           {/* Products Grid */}
           <main className="products-main">
             <div className="products-info">
-              <p>{products.length} {t('products.found', 'products found')}</p>
+              <p>{products.length} products found</p>
             </div>
 
             {loading ? (
@@ -287,10 +313,10 @@ const Products = () => {
               </div>
             ) : (
               <div className="no-products">
-                <h3>{t('products.none_title', 'No products found')}</h3>
-                <p>{t('products.none_text', 'Try adjusting your search or filters')}</p>
+                <h3>No products found</h3>
+                <p>Try adjusting your search or filters</p>
                 <button onClick={clearFilters} className="btn btn-primary">
-                  {t('products.filters.clear_filters', 'Clear Filters')}
+                  Clear Filters
                 </button>
               </div>
             )}

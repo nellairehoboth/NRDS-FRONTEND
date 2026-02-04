@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useI18n } from '../contexts/I18nContext';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
+
 import api from '../api/axios';
 import { sanitizeImageUrl, handleImageError } from '../utils/imageUtils';
 import './ProductCard.css';
@@ -9,7 +11,8 @@ import './ProductCard.css';
 const ProductCard = ({ product, onDelete }) => {
   const { addToCart } = useCart();
   const { isAuthenticated, isAdmin } = useAuth();
-  const { lang } = useI18n();
+  const { showToast } = useToast();
+  const showConfirm = useConfirm();
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [quantity, setQuantity] = useState('1'); // Use string to allow empty state while typing
@@ -38,38 +41,18 @@ const ProductCard = ({ product, onDelete }) => {
     if (selectedVariant && selectedVariant.stock !== null && selectedVariant.stock !== undefined) {
       return Number(selectedVariant.stock);
     }
-    return Number(product.stock);
+    // Fallback to base product stock if no variant is selected
+    if (product.stock !== null && product.stock !== undefined) {
+      return Number(product.stock);
+    }
+    return 0;
   })();
-  const tamilNameMap = {
-    'carrot': 'கேரட்',
-    'tomato': 'தக்காளி',
-    'onion': 'வெங்காயம்',
-    'potato': 'உருளைக்கிழங்கு',
-    'milk': 'பால்',
-    'egg': 'முட்டை',
-    'eggs': 'முட்டைகள்',
-    'sugar': 'சர்க்கரை',
-    'rice': 'அரிசி',
-    'banana': 'வாழைப்பழம்',
-    'apple': 'ஆப்பிள்',
-    'orange': 'ஆரஞ்சு',
-    'grapes': 'திராட்சை',
-    'cabbage': 'முட்டைக்கோசு',
-    'cauliflower': 'பூக்கோசு',
-    'beetroot': 'பீட்ரூட்',
-    'beans': 'பேரிக்காய்',
-    'brinjal': 'கத்தரிக்காய்',
-    'ladyfinger': 'வெண்டைக்காய்',
-    'okra': 'வெண்டைக்காய்'
-  };
-  const baseName = String(product?.name || '').trim().toLowerCase();
-  const displayName = (lang === 'ta')
-    ? (product?.nameTa?.trim() || tamilNameMap[baseName] || product.name)
-    : product.name;
+  const displayName = product.name;
+
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
-      alert('Please login to add to cart');
+      showToast('Please login to add to cart', 'warning');
       return;
     }
 
@@ -84,45 +67,47 @@ const ProductCard = ({ product, onDelete }) => {
           setQuantity('1'); // Reset quantity after success
         }, 1500);
       } else {
-        alert('Failed to add item to cart');
+        showToast('Failed to add item to cart', 'error');
         setIsAdding(false);
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to add item to cart';
-      alert(`Add to cart failed: ${errorMessage}`);
+      showToast(`Add to cart failed: ${errorMessage}`, 'error');
       setIsAdding(false);
     }
   };
 
   const handleDeleteProduct = async () => {
     if (!isAdmin) {
-      alert('Only administrators can delete products');
+      showToast('Only administrators can delete products', 'warning');
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Delete Product',
+      `Are you sure you want to delete "${product.name}"?`
+    );
+    if (!confirmed) return;
 
     setIsDeleting(true);
     try {
       const response = await api.delete(`/api/products/${product._id}`);
 
       if (response.data.success) {
-        alert('Product deleted successfully');
+        showToast('Product deleted successfully', 'success');
         if (onDelete) {
           onDelete(product._id);
         }
         // Refresh the page to update the product list
         window.location.reload();
       } else {
-        alert(`Failed to delete product: ${response.data.message}`);
+        showToast(`Failed to delete product: ${response.data.message}`, 'error');
       }
     } catch (error) {
       console.error('Error deleting product:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to delete product';
-      alert(`Delete failed: ${errorMessage}`);
+      showToast(`Delete failed: ${errorMessage}`, 'error');
     } finally {
       setIsDeleting(false);
     }

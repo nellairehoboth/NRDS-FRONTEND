@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import api from '../api/axios';
 import { loadRazorpayScript } from '../utils/razorpay';
 import './OrderDetails.css';
-import { useI18n } from '../contexts/I18nContext';
+
 import { handlePrintInvoice } from '../utils/invoiceUtils';
 
 const OrderDetails = () => {
+  const { showToast } = useToast();
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retrying, setRetrying] = useState(false);
-  const { lang } = useI18n();
+
   const currency = (n) => `₹${Number(n || 0).toFixed(2)}`;
   const handlePrint = () => handlePrintInvoice(order);
 
@@ -22,13 +24,13 @@ const OrderDetails = () => {
     try {
       const ok = await loadRazorpayScript();
       if (!ok) {
-        alert('Failed to load Razorpay SDK. Please check your connection.');
+        showToast('Failed to load Razorpay SDK. Please check your connection.', 'error');
         return;
       }
 
       const rpRes = await api.post('/api/orders/razorpay/order', { orderId: order._id });
       if (!rpRes?.data?.success) {
-        alert(rpRes?.data?.message || 'Failed to initialize payment.');
+        showToast(rpRes?.data?.message || 'Failed to initialize payment.', 'error');
         return;
       }
 
@@ -51,19 +53,19 @@ const OrderDetails = () => {
             });
 
             if (verifyRes?.data?.success) {
-              alert('Payment successful!');
+              showToast('Payment successful!', 'success');
               window.location.reload();
             } else {
-              alert(verifyRes?.data?.message || 'Payment verification failed.');
+              showToast(verifyRes?.data?.message || 'Payment verification failed.', 'error');
             }
           } catch (err) {
             console.error('Verify failed:', err);
-            alert('Payment verification failed.');
+            showToast('Payment verification failed.', 'error');
           }
         },
         modal: {
           ondismiss: () => {
-            alert('Payment was cancelled.');
+            showToast('Payment was cancelled.', 'info');
           },
         },
         theme: { color: '#2c5530' },
@@ -74,7 +76,7 @@ const OrderDetails = () => {
     } catch (err) {
       console.error('Retry error:', err);
       const msg = err?.response?.data?.message || err.message || 'Failed to start payment retry.';
-      alert(msg);
+      showToast(msg, 'error');
     } finally {
       setRetrying(false);
     }
@@ -245,7 +247,7 @@ const OrderDetails = () => {
                 {items.map((item, idx) => (
                   <div key={idx} className="order-item-row">
                     <div className="item-info">
-                      <span className="item-name">{(lang === 'ta' && (item?.product?.nameTa || item?.nameTa)) ? (item?.product?.nameTa || item?.nameTa) : item.name} {item?.variantLabel ? ` (${item.variantLabel})` : ''}</span>
+                      <span className="item-name">{item.name} {item?.variantLabel ? ` (${item.variantLabel})` : ''}</span>
                       <span className="item-secondary">{item.quantity} x {currency(item.price)} (GST {item.rate}%)</span>
                     </div>
                     <span className="item-price-total">{currency(item.subtotal)}</span>

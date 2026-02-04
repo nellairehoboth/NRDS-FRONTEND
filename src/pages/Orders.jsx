@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useConfirm } from '../contexts/ConfirmContext';
 import api from '../api/axios';
 import './Orders.css';
-import { useI18n } from '../contexts/I18nContext';
+
 
 const Orders = () => {
-  const { t, lang } = useI18n();
+  const showConfirm = useConfirm();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelingId, setCancelingId] = useState(null);
@@ -30,20 +32,20 @@ const Orders = () => {
   const handleDelete = async (order) => {
     try {
       if (!order) return;
-      const ok = window.confirm(t('orders.remove_confirm', `Remove order ${order.orderNumber} from history?`));
+      const ok = await showConfirm('Remove Order', `Remove order ${order.orderNumber} from history?`);
       if (!ok) return;
       setActionMessage('');
       setDeletingId(order._id);
       const res = await api.delete(`/api/orders/${order._id}`);
       if (res?.data?.success) {
         setOrders(prev => prev.filter(o => o._id !== order._id));
-        setActionMessage(t('orders.removed', 'Order removed from history.'));
+        setActionMessage('Order removed from history.');
       } else {
-        setActionMessage(t('orders.remove_failed', 'Failed to remove order from history.'));
+        setActionMessage('Failed to remove order from history.');
       }
     } catch (err) {
       console.error('Delete order from history failed:', err);
-      setActionMessage(t('orders.remove_failed', 'Failed to remove order from history.'));
+      setActionMessage('Failed to remove order from history.');
     } finally {
       setDeletingId(null);
     }
@@ -51,26 +53,26 @@ const Orders = () => {
 
   const handleClearHistory = async () => {
     try {
-      const ok = window.confirm(t('orders.clear_confirm', 'Clear your entire order history? This does not cancel orders; it only hides them from your view.'));
+      const ok = await showConfirm('Clear History', 'Clear your entire order history? This does not cancel orders; it only hides them from your view.');
       if (!ok) return;
       setActionMessage('');
       const res = await api.post('/api/orders/clear');
       if (res?.data?.success) {
         setOrders([]);
-        setActionMessage(t('orders.cleared', 'Order history cleared.'));
+        setActionMessage('Order history cleared.');
       } else {
-        setActionMessage(t('orders.clear_failed', 'Failed to clear order history.'));
+        setActionMessage('Failed to clear order history.');
       }
     } catch (err) {
       console.error('Clear order history failed:', err);
-      setActionMessage(t('orders.clear_failed', 'Failed to clear order history.'));
+      setActionMessage('Failed to clear order history.');
     }
   };
 
   const handleCancel = async (order) => {
     try {
       if (!order || !['CREATED', 'PAYMENT_PENDING', 'pending'].includes(order.status)) return;
-      const ok = window.confirm(t('orders.cancel_confirm', `Cancel order ${order.orderNumber}?`));
+      const ok = await showConfirm('Cancel Order', `Cancel order ${order.orderNumber}?`);
       if (!ok) return;
       setActionMessage('');
       setCancelingId(order._id);
@@ -78,13 +80,13 @@ const Orders = () => {
       const updated = res?.data?.order;
       if (updated) {
         setOrders(prev => prev.map(o => (o._id === order._id ? updated : o)));
-        setActionMessage(t('orders.cancel_success', 'Order cancelled successfully.'));
+        setActionMessage('Order cancelled successfully.');
       } else {
-        setActionMessage(t('orders.cancel_partial', 'Order cancellation completed, but failed to refresh data.'));
+        setActionMessage('Order cancellation completed, but failed to refresh data.');
       }
     } catch (err) {
       console.error('Cancel order failed:', err);
-      setActionMessage(t('orders.cancel_failed', 'Failed to cancel order.'));
+      setActionMessage('Failed to cancel order.');
     } finally {
       setCancelingId(null);
     }
@@ -111,32 +113,32 @@ const Orders = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      CREATED: t('orders.status.created', 'Created'),
-      PAYMENT_PENDING: t('orders.status.payment_pending', 'Payment Pending'),
-      PAID: t('orders.status.paid', 'Paid'),
-      ADMIN_CONFIRMED: t('orders.status.admin_confirmed', 'Admin Confirmed'),
-      SHIPPED: t('orders.status.shipped', 'Shipped'),
-      DELIVERED: t('orders.status.delivered', 'Delivered'),
-      CANCELLED: t('orders.status.cancelled', 'Cancelled'),
-      pending: t('orders.status.pending', 'Pending'),
-      confirmed: t('orders.status.confirmed', 'Confirmed'),
-      processing: t('orders.status.processing', 'Processing'),
-      shipped: t('orders.status.shipped', 'Shipped'),
-      delivered: t('orders.status.delivered', 'Delivered'),
-      cancelled: t('orders.status.cancelled', 'Cancelled')
+      CREATED: 'Created',
+      PAYMENT_PENDING: 'Payment Pending',
+      PAID: 'Paid',
+      ADMIN_CONFIRMED: 'Admin Confirmed',
+      SHIPPED: 'Shipped',
+      DELIVERED: 'Delivered',
+      CANCELLED: 'Cancelled',
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      processing: 'Processing',
+      shipped: 'Shipped',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled'
     };
     return labels[status] || status;
   };
 
   if (loading) {
-    return <div className="loading">{t('orders.loading', 'Loading orders...')}</div>;
+    return <div className="loading">Loading orders...</div>;
   }
 
   if (orders.length === 0) {
     return (
       <div className="orders-empty">
-        <h2>{t('orders.none', 'No orders found')}</h2>
-        <p>{t('orders.none_help', "You haven't placed any orders yet.")}</p>
+        <h2>No orders found</h2>
+        <p>You haven't placed any orders yet.</p>
       </div>
     );
   }
@@ -145,10 +147,10 @@ const Orders = () => {
     <div className="orders-page">
       <div className="container">
         <div className="orders-header-bar">
-          <h1>{t('orders.title', 'My Orders')}</h1>
+          <h1>My Orders</h1>
           {orders.length > 0 && (
-            <button className="clear-history-btn" onClick={handleClearHistory} title={t('orders.clear_tooltip', 'Clear entire history')}>
-              {t('orders.clear', 'Clear History')}
+            <button className="clear-history-btn" onClick={handleClearHistory} title="Clear entire history">
+              Clear History
             </button>
           )}
         </div>
@@ -164,8 +166,8 @@ const Orders = () => {
             <div key={order._id} className="order-card">
               <div className="order-header">
                 <div className="order-info">
-                  <h3>{t('orders.order_no', 'Order #')}{order.orderNumber}</h3>
-                  <p>{t('orders.placed_on', 'Placed on')} {new Date(order.createdAt).toLocaleDateString()}</p>
+                  <h3>Order #{order.orderNumber}</h3>
+                  <p>Placed on {new Date(order.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="order-status">
                   <span
@@ -181,7 +183,7 @@ const Orders = () => {
                 <div className="order-items">
                   {order.items.map((item, index) => (
                     <div key={index} className="order-item">
-                      <span>{(lang === 'ta' && (item?.product?.nameTa || item?.nameTa)) ? (item?.product?.nameTa || item?.nameTa) : item.name} x {item.quantity}</span>
+                      <span>{item.name} x {item.quantity}</span>
                       <span>₹{item.subtotal}</span>
                     </div>
                   ))}
@@ -190,10 +192,10 @@ const Orders = () => {
                 <div className="order-card-footer">
                   <div className="order-stats">
                     <div className="order-total-price">
-                      {t('orders.total', 'Total:')} ₹{order.totalAmount}
+                      Total: ₹{order.totalAmount}
                     </div>
                     <div className="order-payment-info">
-                      {t('orders.payment', 'Payment:')} {order.paymentMethod.toUpperCase()}
+                      Payment: {order.paymentMethod.toUpperCase()}
                       <span className={`payment-status-pill ${order.paymentStatus}`}>
                         {order.paymentStatus}
                       </span>
@@ -202,7 +204,7 @@ const Orders = () => {
 
                   <div className="order-actions">
                     <Link className="view-details-btn" to={`/orders/${order._id}`}>
-                      {t('orders.view_details', 'View Details')}
+                      View Details
                     </Link>
 
                     {['CREATED', 'PAYMENT_PENDING', 'pending'].includes(order.status) && (
@@ -211,7 +213,7 @@ const Orders = () => {
                         onClick={() => handleCancel(order)}
                         disabled={cancelingId === order._id}
                       >
-                        {cancelingId === order._id ? t('orders.cancelling', 'Cancelling...') : t('orders.cancel', 'Cancel Order')}
+                        {cancelingId === order._id ? 'Cancelling...' : 'Cancel Order'}
                       </button>
                     )}
 
@@ -220,7 +222,7 @@ const Orders = () => {
                       onClick={() => handleDelete(order)}
                       disabled={deletingId === order._id}
                     >
-                      {deletingId === order._id ? t('orders.removing', 'Removing...') : t('orders.delete', 'Delete')}
+                      {deletingId === order._id ? 'Removing...' : 'Delete'}
                     </button>
                   </div>
                 </div>

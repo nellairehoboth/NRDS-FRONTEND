@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 import api from '../api/axios';
 import './Checkout.css';
-import { useI18n } from '../contexts/I18nContext';
+
 import { SHOP_LOCATION } from '../config';
 import MapModal from '../components/MapModal';
 import { handleImageError } from '../utils/imageUtils';
@@ -15,8 +16,9 @@ import { loadRazorpayScript } from '../utils/razorpay';
 const Checkout = () => {
   const { cart, clearCart } = useCart();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
-  const { t } = useI18n();
+
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [shippingLocation, setShippingLocation] = useState(null); // { lat, lng }
@@ -24,6 +26,7 @@ const Checkout = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [distanceError, setDistanceError] = useState('');
   const isGpsUpdate = useRef(false);
+  const hasCalculatedInitialDistance = useRef(false);
 
   const [shippingAddress, setShippingAddress] = useState({
     name: user?.name || '',
@@ -154,17 +157,49 @@ const Checkout = () => {
 
     setIsLocating(true);
     setDistanceError('');
+
+    const performSearch = async (searchQuery) => {
+      try {
+        const response = await api.get(`/api/maps/search?q=${encodeURIComponent(searchQuery)}`);
+        return response.data || [];
+      } catch (err) {
+        console.error("Geocoding error:", err);
+        return [];
+      }
+    };
+
     try {
-      const response = await api.get(`/api/maps/search?q=${encodeURIComponent(query)}`);
-      const data = response.data;
-      if (data && data.length > 0) {
-        const { lat, lon } = data[0];
+      // 1. Try exact search
+      let results = await performSearch(query);
+
+      // 2. Fallback: If no results and query starts with numbers (e.g. "3/27 Street Name"), try stripping numbers
+      if (results.length === 0) {
+        // Regex to match leading digits, special chars like / - . , and spaces
+        const cleanedQuery = query.replace(/^[\d/\-.,\s]+\s+/, '');
+
+        // Only retry if we actually changed something and adhere to a minimum length to avoid searching "A"
+        if (cleanedQuery !== query && cleanedQuery.length > 3) {
+          console.log(`Retrying search with cleaned query: "${cleanedQuery}"`);
+          results = await performSearch(cleanedQuery);
+        }
+      }
+
+      if (results.length > 0) {
+        const { lat, lon } = results[0];
         await fetchRoadDistance(parseFloat(lat), parseFloat(lon));
       } else {
+        setDistanceError('Address not found. Please try a different address or use "Locate Me".');
+        setDistance('0');
+        setCustomDeliveryCharge('0');
+        setShippingLocation(null);
         setIsLocating(false);
       }
     } catch (err) {
       console.error(err);
+      setDistanceError('Failed to geocode address.');
+      setDistance('0');
+      setCustomDeliveryCharge('0');
+      setShippingLocation(null);
       setIsLocating(false);
     }
   }, [shippingAddress, fetchRoadDistance]);
@@ -176,8 +211,8 @@ const Checkout = () => {
       return;
     }
 
-    const { street, city } = shippingAddress;
-    if (!street || !city) return;
+    const { street } = shippingAddress;
+    if (!street) return;
 
     const timer = setTimeout(() => {
       handleGeocodeAddress();
@@ -186,9 +221,40 @@ const Checkout = () => {
     return () => clearTimeout(timer);
   }, [shippingAddress, handleGeocodeAddress]);
 
+  // Initialize location from user profile coordinates
+  useEffect(() => {
+    // Only run once when component mounts with profile data
+    if (hasCalculatedInitialDistance.current) return;
+
+    if (user?.address?.lat && user?.address?.lng && deliverySettings.storeLatitude) {
+      const lat = parseFloat(user.address.lat);
+      const lng = parseFloat(user.address.lng);
+      const storeLat = deliverySettings.storeLatitude;
+      const storeLng = deliverySettings.storeLongitude;
+
+      if (!isNaN(lat) && !isNaN(lng)) {
+        // Check if user coordinates are the same as store coordinates (within 0.0001 degrees ~11m)
+        const isSameLocation = Math.abs(lat - storeLat) < 0.0001 && Math.abs(lng - storeLng) < 0.0001;
+
+        if (isSameLocation) {
+          // User is at store location, set distance to 0
+          setDistance('0');
+          setCustomDeliveryCharge('0');
+          setShippingLocation({ lat, lng });
+          hasCalculatedInitialDistance.current = true;
+        } else {
+          // Calculate distance for different location
+          setShippingLocation({ lat, lng });
+          fetchRoadDistance(lat, lng);
+          hasCalculatedInitialDistance.current = true;
+        }
+      }
+    }
+  }, [user, deliverySettings.storeLatitude, deliverySettings.storeLongitude, fetchRoadDistance]);
+
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported");
+      showToast("Geolocation not supported", "error");
       return;
     }
     setIsLocating(true);
@@ -237,12 +303,12 @@ const Checkout = () => {
     const required = ['name', 'street'];
     const missing = required.filter((k) => !String(shippingAddress[k] || '').trim());
     if (missing.length) {
-      alert(t('checkout.required_fields', 'Please fill required fields:') + ' ' + missing.join(', '));
+      showToast('Please fill required fields: ' + missing.join(', '), 'warning');
       return;
     }
 
     if (distanceError) {
-      alert(distanceError);
+      showToast(distanceError, 'error');
       return;
     }
 
@@ -255,7 +321,7 @@ const Checkout = () => {
       }));
 
     if (!items.length) {
-      alert(t('checkout.invalid_cart', 'Your cart has invalid items. Please re-add products and try again.'));
+      showToast('Your cart has invalid items. Please re-add products and try again.', 'error');
       return;
     }
 
@@ -284,13 +350,13 @@ const Checkout = () => {
         if (paymentMethod === 'razorpay') {
           const ok = await loadRazorpayScript();
           if (!ok) {
-            alert(t('checkout.sdk_not_loaded', 'Failed to load Razorpay checkout. Please check your internet connection and try again.'));
+            showToast('Failed to load Razorpay checkout. Please check your internet connection and try again.', 'error');
             return;
           }
 
           const rpRes = await api.post('/api/orders/razorpay/order', { orderId: ord._id });
           if (!rpRes?.data?.success) {
-            alert(rpRes?.data?.message || t('checkout.init_failed', 'Failed to initialize Razorpay payment.'));
+            showToast(rpRes?.data?.message || 'Failed to initialize Razorpay payment.', 'error');
             return;
           }
 
@@ -300,8 +366,8 @@ const Checkout = () => {
             key: keyId,
             amount,
             currency,
-            name: t('brand.name', 'Nellai Rehoboth Department Store'),
-            description: `${t('checkout.title', 'Checkout')} - ${t('order_details.order', 'Order')} ${ord.orderNumber}`,
+            name: 'Nellai Rehoboth Department Store',
+            description: `Checkout - Order ${ord.orderNumber}`,
             order_id: razorpayOrderId,
             prefill: {
               name: shippingAddress.name,
@@ -321,26 +387,26 @@ const Checkout = () => {
                 });
 
                 if (verifyRes?.data?.success) {
-                  alert(`${t('checkout.pay_success', 'Payment successful!\nOrder No:')} ${verifyRes.data.order.orderNumber}`);
+                  showToast(`Payment successful!\nOrder No: ${verifyRes.data.order.orderNumber}`, 'success');
                   await clearCart();
                   navigate(`/orders/${verifyRes.data.order._id}`);
                 } else {
-                  alert(verifyRes?.data?.message || t('checkout.pay_verify_failed', 'Payment verification failed.'));
+                  showToast(verifyRes?.data?.message || 'Payment verification failed.', 'error');
                 }
               } catch (err) {
                 console.error('Razorpay verify failed:', err);
-                const msg = err?.response?.data?.message || err?.message || t('checkout.pay_verify_failed', 'Payment verification failed.');
-                alert(msg);
+                const msg = err?.response?.data?.message || err?.message || 'Payment verification failed.';
+                showToast(msg, 'error');
               }
             },
             modal: {
               ondismiss: async () => {
                 try {
                   await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
-                  alert(t('checkout.pay_cancelled_retry', 'Payment was cancelled. You can retry the payment from your Order History.'));
+                  showToast('Payment was cancelled. You can retry the payment from your Order History.', 'info');
                 } catch (err) {
                   console.error('Failed to notify cancellation:', err);
-                  alert(t('checkout.pay_cancelled', 'Payment was cancelled. Your order is still saved as PAYMENT_PENDING.'));
+                  showToast('Payment was cancelled. Your order is still saved as PAYMENT_PENDING.', 'info');
                 }
                 navigate(`/orders/${ord._id}`);
               },
@@ -352,7 +418,7 @@ const Checkout = () => {
 
           const Razorpay = window.Razorpay;
           if (!Razorpay) {
-            alert(t('checkout.sdk_not_available', 'Razorpay SDK not available. Please refresh and try again.'));
+            showToast('Razorpay SDK not available. Please refresh and try again.', 'error');
             return;
           }
 
@@ -361,27 +427,27 @@ const Checkout = () => {
             console.error('Razorpay payment failed:', resp);
             try {
               await api.post('/api/orders/razorpay/cancel', { orderId: ord._id });
-              alert(resp?.error?.description || t('checkout.pay_failed_retry', 'Payment failed. You can retry from your Order History.'));
+              showToast(resp?.error?.description || 'Payment failed. You can retry from your Order History.', 'error');
             } catch (err) {
               console.error('Failed to notify cancellation on failure:', err);
-              alert(resp?.error?.description || t('checkout.pay_failed', 'Payment failed. Please try again.'));
+              showToast(resp?.error?.description || 'Payment failed. Please try again.', 'error');
             }
             navigate(`/orders/${ord._id}`);
           });
           rzp1.open();
         } else {
-          alert(`${t('checkout.order_placed', 'Order placed successfully!\nOrder No:')} ${ord.orderNumber}`);
+          showToast(`Order placed successfully!\nOrder No: ${ord.orderNumber}`, 'success');
           await clearCart();
           navigate(`/orders/${ord._id}`);
         }
       } else {
-        const msg = response.data?.message || t('checkout.place_failed', 'Failed to place order. Please try again.');
-        alert(msg);
+        const msg = response.data?.message || 'Failed to place order. Please try again.';
+        showToast(msg, 'error');
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      const msg = error?.response?.data?.message || error?.message || t('checkout.place_failed', 'Failed to place order. Please try again.');
-      alert(msg);
+      const msg = error?.response?.data?.message || error?.message || 'Failed to place order. Please try again.';
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -390,8 +456,8 @@ const Checkout = () => {
   if (!cart.items || cart.items.length === 0) {
     return (
       <div className="checkout-empty">
-        <h2>{t('checkout.empty_title', 'No items to checkout')}</h2>
-        <p>{t('checkout.empty_sub', 'Add some products to your cart first!')}</p>
+        <h2>No items to checkout</h2>
+        <p>Add some products to your cart first!</p>
       </div>
     );
   }
@@ -399,27 +465,27 @@ const Checkout = () => {
   return (
     <div className="checkout-page">
       <div className="container">
-        <h1>{t('checkout.title', 'Checkout')}</h1>
+        <h1>Checkout</h1>
         <div className="checkout-content">
           <div className="checkout-form">
             <div className="shipping-section">
-              <h3>{t('checkout.shipping', 'Shipping Address')}</h3>
+              <h3>Shipping Address</h3>
               <div className="form-grid">
                 <input
                   type="text"
-                  placeholder={t('checkout.name', 'Full Name')}
+                  placeholder="Full Name"
                   value={shippingAddress.name}
                   onChange={(e) => handleAddressChange('name', e.target.value)}
                 />
                 <input
                   type="text"
-                  placeholder={t('checkout.phone', 'Phone Number')}
+                  placeholder="Phone Number"
                   value={shippingAddress.phone}
                   onChange={(e) => handleAddressChange('phone', e.target.value)}
                 />
                 <input
                   type="text"
-                  placeholder={t('checkout.street', 'Street Address')}
+                  placeholder="Street Address"
                   value={shippingAddress.street}
                   onChange={(e) => handleAddressChange('street', e.target.value)}
                   className="full-width"
@@ -427,19 +493,19 @@ const Checkout = () => {
                 <div className="three-cols">
                   <input
                     type="text"
-                    placeholder={t('checkout.city', 'City')}
+                    placeholder="City"
                     value={shippingAddress.city}
                     onChange={(e) => handleAddressChange('city', e.target.value)}
                   />
                   <input
                     type="text"
-                    placeholder={t('checkout.state', 'State')}
+                    placeholder="State"
                     value={shippingAddress.state}
                     onChange={(e) => handleAddressChange('state', e.target.value)}
                   />
                   <input
                     type="text"
-                    placeholder={t('checkout.zip', 'ZIP Code')}
+                    placeholder="ZIP Code"
                     value={shippingAddress.zipCode}
                     onChange={(e) => handleAddressChange('zipCode', e.target.value)}
                   />
@@ -449,7 +515,7 @@ const Checkout = () => {
 
             <div className="delivery-section">
               <div className="delivery-container">
-                <h3>📍 {t('checkout.delivery_location', 'Choose Delivery Location')}</h3>
+                <h3>📍 Choose Delivery Location</h3>
 
                 <div className="loc-btn-group">
                   <button
@@ -458,7 +524,7 @@ const Checkout = () => {
                     onClick={handleUseCurrentLocation}
                     disabled={isLocating}
                   >
-                    {isLocating ? '⌛' : <img src="https://cdn-icons-gif.flaticon.com/6844/6844595.gif" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '20px', height: '20px' }} />} {t('checkout.use_current', 'Use Current Location')}
+                    {isLocating ? '⌛' : <img src="https://cdn-icons-gif.flaticon.com/6844/6844595.gif" alt="" onError={(e) => handleImageError(e, '/placeholder-product.svg')} style={{ width: '20px', height: '20px' }} />} Use Current Location
                   </button>
                   <button
                     type="button"
@@ -466,7 +532,7 @@ const Checkout = () => {
                     onClick={handleGeocodeAddress}
                     disabled={isLocating}
                   >
-                    🔍 {t('checkout.locate_address', 'Locate from Address')}
+                    🔍 Locate from Address
                   </button>
                   <button
                     type="button"
@@ -485,7 +551,7 @@ const Checkout = () => {
                       setDistanceError('');
                     }}
                   >
-                    ❌ {t('checkout.reset', 'Reset Address')}
+                    ❌ Reset Address
                   </button>
                 </div>
 
@@ -493,25 +559,25 @@ const Checkout = () => {
 
                 <div className="distance-info-card">
                   <p>
-                    <span>{t('checkout.distance', 'Road Distance:')}</span>
+                    <span>Road Distance:</span>
                     <strong>{isLocating ? 'Calculating...' : `${distance} KM`}</strong>
                   </p>
                   <p>
-                    <span>{t('checkout.applied_charge', 'Delivery Charge:')}</span>
+                    <span>Delivery Charge:</span>
                     <strong>{isLocating ? '...' : `₹${deliveryCharge}`}</strong>
                   </p>
                 </div>
 
                 {isActuallyFree && (
                   <div className="free-delivery-text">
-                    {t('checkout.free_delivery', 'Free delivery applied!')} ✅
+                    Free delivery applied! ✅
                   </div>
                 )}
               </div>
             </div>
 
             <div className="payment-section">
-              <h3>{t('checkout.payment', 'Payment Method')}</h3>
+              <h3>Payment Method</h3>
               <div className="payment-options">
                 <label className="payment-option">
                   <input
@@ -520,7 +586,7 @@ const Checkout = () => {
                     checked={paymentMethod === 'cod'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>{t('checkout.pay_cod', 'Cash on Delivery')}</span>
+                  <span>Cash on Delivery</span>
                 </label>
                 <label className="payment-option">
                   <input
@@ -529,14 +595,14 @@ const Checkout = () => {
                     checked={paymentMethod === 'razorpay'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>{t('checkout.pay_razorpay', 'UPI/Cards/Wallets (Razorpay)')}</span>
+                  <span>UPI/Cards/Wallets (Razorpay)</span>
                 </label>
               </div>
             </div>
           </div>
 
           <div className="order-summary">
-            <h3>{t('checkout.order_summary', 'Order Summary')}</h3>
+            <h3>Order Summary</h3>
             <div className="order-items-list">
               {cart.items.map((item, index) => {
                 const product = item?.product || {};
@@ -562,15 +628,15 @@ const Checkout = () => {
             <div className="summary-divider"></div>
 
             <div className="summary-row">
-              <span>{t('checkout.subtotal', 'Subtotal:')}</span>
+              <span>Subtotal:</span>
               <span>₹{cart.totalAmount.toFixed(2)}</span>
             </div>
             <div className="summary-row">
-              <span>{t('checkout.delivery_fee', 'Delivery Fee:')}</span>
-              <span>{deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : t('checkout.free', 'Free')}</span>
+              <span>Delivery Fee:</span>
+              <span>{deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'Free'}</span>
             </div>
             <div className="summary-row total-row">
-              <span>{t('checkout.total', 'Total:')}</span>
+              <span>Total:</span>
               <span>₹{(cart.totalAmount + deliveryCharge).toFixed(2)}</span>
             </div>
 
@@ -579,7 +645,7 @@ const Checkout = () => {
               disabled={loading}
               className="place-order-btn"
             >
-              {loading ? t('checkout.placing', 'Placing Order...') : t('checkout.place_order', 'Place Order')}
+              {loading ? 'Placing Order...' : 'Place Order'}
             </button>
           </div>
         </div>

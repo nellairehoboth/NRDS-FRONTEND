@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
 import './Signup.css';
-import { useI18n } from '../contexts/I18nContext';
+
 
 const Signup = () => {
   const { isAuthenticated, login } = useAuth();
-  const { t } = useI18n();
+
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -26,6 +26,8 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(1); // Multi-step form
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -58,23 +60,23 @@ const Signup = () => {
 
   const validateStep1 = () => {
     if (!formData.name.trim()) {
-      setError(t('auth.signup.name_required', 'Name is required'));
+      setError('Name is required');
       return false;
     }
     if (!formData.email.trim()) {
-      setError(t('auth.signup.email_required', 'Email is required'));
+      setError('Email is required');
       return false;
     }
     if (!formData.password) {
-      setError(t('auth.signup.password_required', 'Password is required'));
+      setError('Password is required');
       return false;
     }
     if (formData.password.length < 6) {
-      setError(t('auth.signup.password_min', 'Password must be at least 6 characters'));
+      setError('Password must be at least 6 characters');
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
-      setError(t('auth.signup.password_mismatch', 'Passwords do not match'));
+      setError('Passwords do not match');
       return false;
     }
     return true;
@@ -99,11 +101,11 @@ const Signup = () => {
         await login(response.data.token, response.data.user, rememberMe);
         navigate('/');
       } else {
-        setError(response.data.message || t('auth.signup.failed', 'Signup failed'));
+        setError(response.data.message || 'Signup failed');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      setError(error.response?.data?.message || t('auth.signup.try_again', 'Signup failed. Please try again.'));
+      setError(error.response?.data?.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -122,8 +124,8 @@ const Signup = () => {
       <div className="signup-container">
         <div className="signup-card">
           <div className="signup-header">
-            <h1>{t('auth.signup.title', 'Join With NRDS !')}</h1>
-            <p>{t('auth.signup.subtitle', 'Create your account to start shopping with voice commands')}</p>
+            <h1>Join With NRDS !</h1>
+            <p>Create your account to start shopping with voice commands</p>
           </div>
 
           <div className="signup-content">
@@ -135,10 +137,10 @@ const Signup = () => {
 
             {step === 1 && (
               <div className="step-content">
-                <h3>{t('auth.signup.account_info', 'Account Information')}</h3>
+                <h3>Account Information</h3>
                 <form className="signup-form">
                   <div className="form-group">
-                    <label htmlFor="name">{t('auth.full_name', 'Full Name')}</label>
+                    <label htmlFor="name">Full Name</label>
                     <input
                       type="text"
                       id="name"
@@ -146,13 +148,13 @@ const Signup = () => {
                       value={formData.name}
                       onChange={handleInputChange}
                       required
-                      placeholder={t('auth.full_name_ph', 'Enter your full name')}
+                      placeholder="Enter your full name"
                       className="form-input"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="email">{t('auth.email', 'Email Address')}</label>
+                    <label htmlFor="email">Email Address</label>
                     <input
                       type="email"
                       id="email"
@@ -160,37 +162,65 @@ const Signup = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       required
-                      placeholder={t('auth.email_ph', 'Enter your email')}
+                      placeholder="Enter your email"
                       className="form-input"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="password">{t('auth.password', 'Password')}</label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                      placeholder={t('auth.password_create_ph', 'Create a password (min 6 characters)')}
-                      className="form-input"
-                    />
+                    <label htmlFor="password">Password</label>
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Create a password (min 6 characters)"
+                        className="form-input"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="confirmPassword">{t('auth.confirm_password', 'Confirm Password')}</label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      required
-                      placeholder={t('auth.confirm_password_ph', 'Confirm your password')}
-                      className="form-input"
-                    />
+                    <label htmlFor="confirmPassword">Confirm Password</label>
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Confirm your password"
+                        className="form-input"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-options">
@@ -200,7 +230,7 @@ const Signup = () => {
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
                       />
-                      <span>{t('auth.remember_me', 'Remember Me')}</span>
+                      <span>Remember Me</span>
                     </label>
                   </div>
 
@@ -209,7 +239,7 @@ const Signup = () => {
                     onClick={handleNextStep}
                     className="next-btn"
                   >
-                    {t('auth.signup.next_step', 'Next Step →')}
+                    Next Step →
                   </button>
                 </form>
               </div>
@@ -217,57 +247,57 @@ const Signup = () => {
 
             {step === 2 && (
               <div className="step-content">
-                <h3>{t('auth.signup.contact_addr', 'Contact & Address (Optional)')}</h3>
+                <h3>Contact & Address (Optional)</h3>
                 <form onSubmit={handleSubmit} className="signup-form">
                   <div className="form-group">
-                    <label htmlFor="phone">{t('auth.phone', 'Phone Number')}</label>
+                    <label htmlFor="phone">Phone Number</label>
                     <input
                       type="tel"
                       id="phone"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      placeholder={t('auth.phone_ph', 'Enter your phone number')}
+                      placeholder="Enter your phone number"
                       className="form-input"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="address.street">{t('auth.address.street', 'Street Address')}</label>
+                    <label htmlFor="address.street">Street Address</label>
                     <input
                       type="text"
                       id="address.street"
                       name="address.street"
                       value={formData.address.street}
                       onChange={handleInputChange}
-                      placeholder={t('auth.address.street_ph', 'Enter your street address')}
+                      placeholder="Enter your street address"
                       className="form-input"
                     />
                   </div>
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label htmlFor="address.city">{t('auth.address.city', 'City')}</label>
+                      <label htmlFor="address.city">City</label>
                       <input
                         type="text"
                         id="address.city"
                         name="address.city"
                         value={formData.address.city}
                         onChange={handleInputChange}
-                        placeholder={t('auth.address.city_ph', 'City')}
+                        placeholder="City"
                         className="form-input"
                       />
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="address.state">{t('auth.address.state', 'State')}</label>
+                      <label htmlFor="address.state">State</label>
                       <input
                         type="text"
                         id="address.state"
                         name="address.state"
                         value={formData.address.state}
                         onChange={handleInputChange}
-                        placeholder={t('auth.address.state_ph', 'State')}
+                        placeholder="State"
                         className="form-input"
                       />
                     </div>
@@ -275,20 +305,20 @@ const Signup = () => {
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label htmlFor="address.zipCode">{t('auth.address.zip', 'ZIP Code')}</label>
+                      <label htmlFor="address.zipCode">ZIP Code</label>
                       <input
                         type="text"
                         id="address.zipCode"
                         name="address.zipCode"
                         value={formData.address.zipCode}
                         onChange={handleInputChange}
-                        placeholder={t('auth.address.zip_ph', 'ZIP Code')}
+                        placeholder="ZIP Code"
                         className="form-input"
                       />
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="address.country">{t('auth.address.country', 'Country')}</label>
+                      <label htmlFor="address.country">Country</label>
                       <select
                         id="address.country"
                         name="address.country"
@@ -310,14 +340,14 @@ const Signup = () => {
                       onClick={() => setStep(1)}
                       className="back-btn"
                     >
-                      {t('auth.signup.back', '← Back')}
+                      ← Back
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
                       className="signup-btn"
                     >
-                      {loading ? t('auth.signup.creating', 'Creating Account...') : t('auth.signup.create', 'Create Account')}
+                      {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
                   </div>
                 </form>
@@ -331,20 +361,20 @@ const Signup = () => {
               disabled={loading}
             >
               <img src="https://img.icons8.com/?size=96&id=17949&format=png" alt="Google" className="google-icon" />
-              {t('auth.signup_with_google', 'Sign up with Google')}
+              Sign up with Google
             </button>
 
             <div className="login-link">
               <p>
-                {t('auth.signup.has_account', 'Already have an account?')}
-                <Link to="/login"> {t('auth.login.here', 'Login here')}</Link>
+                Already have an account?
+                <Link to="/login"> Login here</Link>
               </p>
             </div>
           </div>
 
           <div className="signup-footer">
             <p>
-              {t('auth.terms_signup', 'By creating an account, you agree to our Terms of Service and Privacy Policy.')}
+              By creating an account, you agree to our Terms of Service and Privacy Policy.
             </p>
           </div>
         </div>
